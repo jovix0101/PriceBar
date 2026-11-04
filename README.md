@@ -4,6 +4,8 @@
 
 需要 **macOS 14 以上**，Xcode 或 Command Line Tools。没有第三方依赖。
 
+**[产品页 →](https://jovix0101.github.io/pricebar/)**
+
 ![菜单栏与面板](docs/panel.png)
 
 ## 跑起来
