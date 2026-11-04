@@ -166,16 +166,47 @@ final class Store {
     /// width while coins take turns. Read off the prices in hand; a coin whose
     /// price has not arrived is measured at the widest price it could have,
     /// which is the one already showing.
+    ///
+    /// This is the width of the drawn part alone. The change rides beside it
+    /// as the item's title and brings its own width with it, which is the same
+    /// for every coin, since an empty change is still reserved at full size.
     var menuBarWidth: CGFloat {
         let labels = menuBarQuotes.map { quote in
             MenuBarPrice.width(of: MenuBarPrice.Label(
                 coin: quote.coin,
                 symbol: currency.symbol,
                 amount: amount(quote.price),
-                change: MenuBarPrice.widthReserve(quote.change)
+                change: MenuBarPrice.widthReserve(quote.change),
+                changeValue: quote.change
             ))
         }
         return labels.max() ?? 0
+    }
+
+    /// How much room the drawn price leaves unused this second.
+    ///
+    /// The item is as wide as the widest coin on its list, so a narrower price
+    /// would otherwise leave its change stranded to the right. The change
+    /// takes that room back as clear space after itself, which keeps the item
+    /// one width and the change against the price at the same time.
+    var menuBarSlack: CGFloat {
+        guard let quote = menuBarQuote else { return 0 }
+        let drawn = MenuBarPrice.width(of: MenuBarPrice.Label(
+            coin: quote.coin,
+            symbol: currency.symbol,
+            amount: amount(quote.price),
+            change: "",
+            changeValue: quote.change
+        ))
+        return max(0, menuBarWidth - drawn)
+    }
+
+    /// The whole label as it will read in the menu bar, price and change
+    /// together: what the settings page previews and a screen reader says.
+    var menuBarReading: String {
+        guard let quote = menuBarQuote else { return "" }
+        return "\(quote.coin) \(currency.symbol)\(amount(quote.price)) \(formatArrowed(quote.change))"
+            .trimmingCharacters(in: .whitespaces)
     }
 
     /// How the panel's footer names what the menu bar is doing.

@@ -278,11 +278,16 @@ struct SettingsView: View {
     /// turning at the interval chosen above: reading the numbers cannot tell
     /// you whether three seconds is too fast.
     private var preview: some View {
+        // The menu bar puts its own gap between the image and the title; here
+        // the two are separate views, so the gap has to be asked for.
         HStack(spacing: 4) {
             if let image = MenuBarPrice.image(for: store) {
                 Image(nsImage: image)
                     .renderingMode(MenuBarPrice.tint(for: store) == nil ? .template : .original)
                     .foregroundStyle(.primary)
+                // The change is a title in the menu bar, coloured by direction
+                // alone, so it is shown beside the image rather than in it.
+                Text(AttributedString(MenuBarPrice.changeTitle(for: store)))
             } else {
                 Text("—")
                     .font(.system(size: 12))

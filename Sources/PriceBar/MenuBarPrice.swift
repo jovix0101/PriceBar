@@ -25,9 +25,11 @@ enum MenuBarPrice {
         /// The 24h change after the price, arrow and all: "▲2.02%". Empty when
         /// there is none to show.
         let change: String
+        /// The same change as a number, which is what picks its colour.
+        let changeValue: Double
     }
 
-    /// The colour to draw in, or nil to keep the template.
+    /// The colour of the coin and the price, or nil to keep the template.
     ///
     /// A template image takes the menu bar's tint and inverts with light and
     /// dark by itself, which is what "自动" means. A colour of its own gives
@@ -35,9 +37,12 @@ enum MenuBarPrice {
     /// while the system says dark, or the other way round.
     ///
     /// "随涨跌" reads the change and takes the panel's own green or red, so
-    /// that the number in the menu bar and the number in the panel cannot
+    /// that the price in the menu bar and the number in the panel cannot
     /// disagree. A change with no side of its own — one that prints as
     /// "0.00%" — goes back to the template, since there is nothing to colour.
+    ///
+    /// This colour covers the coin and the price only. The change after them
+    /// is coloured by direction whatever is chosen here — see `changeColour`.
     static func tint(_ choice: MenuBarTint, change: Double, colors: ChangeColors) -> NSColor? {
         switch choice {
         case .automatic: return nil
@@ -49,9 +54,25 @@ enum MenuBarPrice {
         }
     }
 
+    /// The colour of the change, which is by direction and nothing else.
+    ///
+    /// The choice above says how the coin and the price should sit on the
+    /// wallpaper; it has no say here. Green up and red down is the one thing
+    /// in the label that carries meaning, and a menu bar that coloured it
+    /// black would lose that reading for the sake of consistency.
+    static func changeColour(_ change: Double, colors: ChangeColors) -> NSColor {
+        guard let green = colors.isGreen(change) else { return .secondaryLabelColor }
+        return green ? .systemGreen : .systemRed
+    }
+
     /// U+2009. The separator between the currency and the number.
     private static let thinSpace = "\u{2009}"
 
+    /// The coin, the currency and the price — the part this file draws.
+    ///
+    /// The change is not in here. It is set as the item's title instead, so
+    /// that the menu bar colours it and the price beside it separately: the
+    /// price follows the choice above, the change is always green or red.
     static func attributed(_ label: Label, colour: NSColor = .black) -> NSAttributedString {
         let smallFont = NSFont.systemFont(ofSize: 10, weight: .medium)
         let digitsFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
@@ -71,22 +92,88 @@ enum MenuBarPrice {
             string: thinSpace + label.amount,
             attributes: [.font: digitsFont, .foregroundColor: colour]
         ))
-        if !label.change.isEmpty {
-            // A step lighter: the price is what the item is for, the change is
-            // a note on it. Template images keep the alpha they were drawn
-            // with, so this dims against the menu bar's own tint.
-            text.append(NSAttributedString(
-                string: " " + label.change,
-                attributes: [
-                    .font: smallFont,
-                    .foregroundColor: colour.withAlphaComponent(0.75),
-                ]
-            ))
-        }
         return text
     }
 
-    /// How wide this coin's label would be, drawn on its own.
+    /// The change as the item's title: the menu bar sets this text itself, in
+    /// the colour given here, so green and red survive any choice above.
+    ///
+    /// A change that prints as nothing still takes up its room, drawn in clear:
+    /// a title that vanishes would shrink the item by forty points and shift
+    /// every icon beside it.
+    ///
+    /// `slack` is the room the drawn price left unused, because every coin is
+    /// drawn on the widest label's width. It goes after the change, in clear,
+    /// so that the item keeps one width while the change still sits against
+    /// the price: a gap in the middle of the label would read as two labels.
+    static func changeTitle(
+        _ label: Label,
+        colors: ChangeColors,
+        slack: CGFloat = 0,
+        visible: Bool = true
+    ) -> NSAttributedString {
+        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        let shown = label.change.isEmpty ? widthReserve(label.changeValue) : label.change
+        let colour: NSColor = if label.change.isEmpty || !visible {
+            .clear
+        } else {
+            changeColour(label.changeValue, colors: colors)
+        }
+        // No space before the change: the item leaves a fixed gap between the
+        // image and the title, and a space on top of it would grow that gap
+        // with the font rather than keep it the same for every coin.
+        let text = NSMutableAttributedString(
+            string: shown,
+            attributes: [.font: font, .foregroundColor: colour]
+        )
+        // The change is a title, and a title that grows and shrinks would move
+        // every icon beside the item: one coin's "▲1.73%" against another's
+        // "▲2%". So it is always measured against a full-width sample and the
+        // difference held in clear hair spaces, which take no ink.
+        pad(text, to: changeWidth(label.changeValue), font: font)
+        // `slack` is the room the drawn price left unused, since every coin is
+        // drawn at its own width. It goes after the change, in clear, so that
+        // the item keeps one width while the change still sits against the
+        // price: the gap belongs at the far edge, not in the middle of the
+        // label.
+        pad(text, to: text.size().width + slack, font: font)
+        return text
+    }
+
+    /// The room the change takes as the item's title, the same for every coin:
+    /// the wider of a full-width sample and whatever this one prints.
+    static func changeWidth(_ change: Double) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        return ceil(widthReserve(change).size(withAttributes: [.font: font]).width)
+    }
+
+    /// U+200A, the narrowest space the system font has: it lets the room above
+    /// be filled in steps small enough to disappear.
+    private static let hairSpace: CGFloat = 0.8
+
+    /// Fills `text` with clear hair spaces until it is `target` wide.
+    private static func pad(_ text: NSMutableAttributedString, to target: CGFloat, font: NSFont) {
+        var width = text.size().width
+        guard target > width else { return }
+        let spaces = Int(ceil((target - width) / hairSpace))
+        text.append(NSAttributedString(
+            string: String(repeating: "\u{200A}", count: spaces),
+            attributes: [.font: font, .foregroundColor: NSColor.clear]
+        ))
+        // Hair spaces overshoot by up to one space; a kern pulls the last one
+        // back so the item's width lands on the point rather than past it.
+        width = text.size().width
+        let over = width - target
+        if over > 0 {
+            text.addAttribute(
+                .kern,
+                value: -over,
+                range: NSRange(location: text.length - 1, length: 1)
+            )
+        }
+    }
+
+    /// How wide the drawn part of this coin's label would be, on its own.
     static func width(of label: Label) -> CGFloat {
         ceil(attributed(label).size().width)
     }
@@ -96,6 +183,10 @@ enum MenuBarPrice {
     /// A change that rounds to nothing prints as nothing, and a label that
     /// loses forty points the moment a coin crosses flat would shift every
     /// icon beside it. So an empty change is measured as if it were there.
+    ///
+    /// The title is not drawn here, so this width no longer feeds the image.
+    /// It measures the room the change takes as a title, which the panel's
+    /// preview and the item's own width are written against.
     static func widthReserve(_ change: Double) -> String {
         let text = formatArrowed(change)
         return text.isEmpty ? "▲00.00%" : text
@@ -154,7 +245,8 @@ enum MenuBarPrice {
             coin: quote.coin,
             symbol: store.currency.symbol,
             amount: store.amount(quote.price),
-            change: formatArrowed(quote.change)
+            change: formatArrowed(quote.change),
+            changeValue: quote.change
         )
     }
 
@@ -168,7 +260,13 @@ enum MenuBarPrice {
 
     @MainActor static func image(for store: Store) -> NSImage? {
         guard let label = label(for: store) else { return nil }
-        return image(label, width: store.menuBarWidth, tint: tint(for: store))
+        return image(label, width: width(of: label), tint: tint(for: store))
+    }
+
+    /// The change the item is showing now, ready to be its title.
+    @MainActor static func changeTitle(for store: Store) -> NSAttributedString {
+        guard let label = label(for: store) else { return NSAttributedString(string: "") }
+        return changeTitle(label, colors: store.changeColors, slack: store.menuBarSlack)
     }
 
     /// Half a point of headroom on the left: the glyphs of a font's bounding
