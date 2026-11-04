@@ -74,6 +74,11 @@ final class Store {
         set { apply { $0.changeColors = newValue } }
     }
 
+    var menuBarTint: MenuBarTint {
+        get { settings.menuBarTint }
+        set { apply { $0.menuBarTint = newValue } }
+    }
+
     var source: MarketSource {
         get { settings.source }
         set { apply { $0.source = newValue } }

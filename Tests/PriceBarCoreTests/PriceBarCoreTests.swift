@@ -255,6 +255,24 @@ struct SettingsFileTests {
         #expect(again.changeColors == .redUp)
     }
 
+    @Test("旧设置文件没有文字颜色字段时按自动")
+    func menuBarTintDefaults() throws {
+        let json = #"{"coins":["BTC"],"primary":"BTC","currency":"USD","interval":10,"rules":[]}"#
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(settings.menuBarTint == .automatic)
+        // And a chosen colour survives a round trip.
+        var chosen = settings
+        chosen.menuBarTint = .light
+        let again = try JSONDecoder().decode(
+            AppSettings.self, from: JSONEncoder().encode(chosen))
+        #expect(again.menuBarTint == .light)
+        // A colour it does not know falls back rather than losing the file.
+        let odd = #"{"coins":["BTC"],"currency":"USD","menuBarTint":"purple"}"#
+        let read = try JSONDecoder().decode(AppSettings.self, from: Data(odd.utf8))
+        #expect(read.menuBarTint == .automatic)
+        #expect(read.coins == ["BTC"])
+    }
+
     @Test("一个读不懂的字段不会带走其余设置")
     func anUnreadableFieldKeepsTheRest() throws {
         // "usd" is not a Currency the app knows; the coins and the rule

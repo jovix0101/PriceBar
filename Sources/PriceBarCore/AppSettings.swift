@@ -31,6 +31,25 @@ public enum ChangeColors: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// What colour the menu bar writes the price in.
+///
+/// The label is drawn as a template image, which takes the menu bar's own
+/// tint and so follows light and dark by itself. But the menu bar is
+/// translucent now: over a bright wallpaper the tint it picks can sit on a
+/// light strip and be hard to read. These are the way out — draw the label
+/// dark, or light, and stop following.
+public enum MenuBarTint: String, Codable, CaseIterable, Sendable {
+    case automatic, dark, light
+
+    public var label: String {
+        switch self {
+        case .automatic: "自动"
+        case .dark: "深色"
+        case .light: "浅色"
+        }
+    }
+}
+
 /// Everything the app remembers between launches.
 public struct AppSettings: Codable, Equatable, Sendable {
     public var coins: [String] = ["BTC", "ETH"]
@@ -45,6 +64,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var interval: Double = 10
     /// Which color means a rise.
     public var changeColors: ChangeColors = .greenUp
+    /// What colour the menu bar writes the price in.
+    public var menuBarTint: MenuBarTint = .automatic
     /// Which exchange the prices come from.
     public var source: MarketSource = .binance
     /// How the app reaches that exchange.
@@ -56,6 +77,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case coins, menuBarCoins, rotateInterval, currency, interval, changeColors
+        case menuBarTint
         case source, proxyMode, proxyAddress, rules
         /// Written by versions that had one coin on the menu bar.
         case primary
@@ -69,6 +91,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try container.encode(currency, forKey: .currency)
         try container.encode(interval, forKey: .interval)
         try container.encode(changeColors, forKey: .changeColors)
+        try container.encode(menuBarTint, forKey: .menuBarTint)
         try container.encode(source, forKey: .source)
         try container.encode(proxyMode, forKey: .proxyMode)
         try container.encode(proxyAddress, forKey: .proxyAddress)
@@ -86,6 +109,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         currency = (try? container.decode(Currency.self, forKey: .currency)) ?? defaults.currency
         interval = (try? container.decode(Double.self, forKey: .interval)) ?? defaults.interval
         changeColors = (try? container.decode(ChangeColors.self, forKey: .changeColors)) ?? defaults.changeColors
+        menuBarTint = (try? container.decode(MenuBarTint.self, forKey: .menuBarTint)) ?? defaults.menuBarTint
         source = (try? container.decode(MarketSource.self, forKey: .source)) ?? defaults.source
         proxyMode = (try? container.decode(ProxyMode.self, forKey: .proxyMode)) ?? defaults.proxyMode
         proxyAddress = (try? container.decode(String.self, forKey: .proxyAddress)) ?? defaults.proxyAddress

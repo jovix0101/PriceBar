@@ -101,6 +101,19 @@ struct SettingsView: View {
                     .frame(width: 202)
                     .disabled(store.menuBarCoins.count < 2)
                 }
+                row("文字颜色") {
+                    Picker("", selection: Binding(
+                        get: { store.menuBarTint },
+                        set: { store.menuBarTint = $0 }
+                    )) {
+                        ForEach(MenuBarTint.allCases, id: \.self) { tint in
+                            Text(tint.label).tag(tint)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 202)
+                }
                 row("预览") {
                     preview
                 }
@@ -111,6 +124,11 @@ struct SettingsView: View {
                     noteText("勾选两个以上币种，菜单栏才开始轮播。")
                 } else {
                     noteText("按面板里的顺序轮播，打开面板时暂停。")
+                }
+                if store.menuBarTint == .automatic {
+                    noteText("自动：菜单栏按壁纸明暗自己着色，图标跟着系统变。")
+                } else {
+                    noteText("固定用\(store.menuBarTint.label)，不随下次换壁纸变化。")
                 }
             }
 
@@ -259,7 +277,7 @@ struct SettingsView: View {
         HStack(spacing: 4) {
             if let image = MenuBarPrice.image(for: store) {
                 Image(nsImage: image)
-                    .renderingMode(.template)
+                    .renderingMode(store.menuBarTint == .automatic ? .template : .original)
                     .foregroundStyle(.primary)
             } else {
                 Text("—")
@@ -269,7 +287,18 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 6))
+        .background(backdrop, in: .rect(cornerRadius: 6))
+    }
+
+    /// The swatch behind the preview. A label drawn in a colour of its own
+    /// needs the menu bar it was chosen for behind it, or the light one would
+    /// be white on white and say nothing.
+    private var backdrop: AnyShapeStyle {
+        switch store.menuBarTint {
+        case .automatic: AnyShapeStyle(.quaternary.opacity(0.5))
+        case .dark: AnyShapeStyle(Color.white.opacity(0.9))
+        case .light: AnyShapeStyle(Color.black.opacity(0.75))
+        }
     }
 
     /// Writes the typed address down half a second after the typing stops,

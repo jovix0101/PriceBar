@@ -23,6 +23,10 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     /// from a change of price.
     private var showing: MenuBarPrice.Label?
 
+    /// The colour the label is drawn in, or nil to keep it a template image
+    /// and let the menu bar tint it.
+    private var tint: NSColor? { MenuBarPrice.tint(store.menuBarTint) }
+
     init(store: Store) {
         self.store = store
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -75,7 +79,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         else {
             scroll?.invalidate()
             scroll = nil
-            item.button?.image = MenuBarPrice.image(label, width: width)
+            item.button?.image = MenuBarPrice.image(label, width: width, tint: tint)
             return
         }
         roll(from: previous, to: label, width: width)
@@ -112,7 +116,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         guard elapsed < 1 else {
             scroll?.invalidate()
             scroll = nil
-            item.button?.image = MenuBarPrice.image(new, width: width)
+            item.button?.image = MenuBarPrice.image(new, width: width, tint: tint)
             return
         }
         let eased = 1 - pow(1 - elapsed, 3)
@@ -120,7 +124,8 @@ final class StatusItem: NSObject, NSPopoverDelegate {
             from: old,
             to: new,
             width: width,
-            progress: CGFloat(eased)
+            progress: CGFloat(eased),
+            tint: tint
         )
     }
 
@@ -132,6 +137,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
             _ = store.menuBarQuote
             _ = store.menuBarWidth
             _ = store.currency
+            _ = store.menuBarTint
         } onChange: { [weak self] in
             // The change is still being written when this is called, so the
             // redraw waits for the next turn of the run loop.
@@ -198,6 +204,11 @@ final class StatusItem: NSObject, NSPopoverDelegate {
 
         guard let button = item.button else { return }
         if popover.isShown { popover.performClose(nil) }
+
+        // Nothing is drawn behind the item while its menu is up — the menu
+        // bar is transparent, and a status item's own button is not filled in
+        // — so a label in a colour of its own can stay as it is. Inverting it
+        // here made black text white over the wallpaper, which read worse.
         // Popped up at the item's bottom edge, which is where the system's
         // own menu bar items put theirs. The app is brought forward first:
         // a menu is drawn only for the active app, and the item can be

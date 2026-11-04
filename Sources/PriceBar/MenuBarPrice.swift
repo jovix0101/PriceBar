@@ -27,10 +27,23 @@ enum MenuBarPrice {
         let change: String
     }
 
-    static func attributed(_ label: Label) -> NSAttributedString {
+    /// The colour to draw in, or nil to keep the template.
+    ///
+    /// A template image takes the menu bar's tint and inverts with light and
+    /// dark by itself, which is what "自动" means. A colour of its own gives
+    /// up that adaptation on purpose: it is for a menu bar that reads as light
+    /// while the system says dark, or the other way round.
+    static func tint(_ choice: MenuBarTint) -> NSColor? {
+        switch choice {
+        case .automatic: nil
+        case .dark: .black
+        case .light: .white
+        }
+    }
+
+    static func attributed(_ label: Label, colour: NSColor = .black) -> NSAttributedString {
         let smallFont = NSFont.systemFont(ofSize: 10, weight: .medium)
         let digitsFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
-        let colour = NSColor.black
 
         let text = NSMutableAttributedString(
             string: label.coin + " ",
@@ -76,15 +89,15 @@ enum MenuBarPrice {
 
     /// `width` is the room the label has: the widest label of the coins the
     /// menu bar shows, so that the item never changes size between them.
-    static func image(_ label: Label, width: CGFloat) -> NSImage {
-        let text = attributed(label)
+    static func image(_ label: Label, width: CGFloat, tint: NSColor? = nil) -> NSImage {
+        let text = attributed(label, colour: tint ?? .black)
         let size = text.size()
         let canvas = NSSize(width: contentWidth(text, width), height: ceil(size.height))
         let image = NSImage(size: canvas, flipped: false) { _ in
             text.draw(at: NSPoint(x: 0.5, y: 0))
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = tint == nil
         return image
     }
 
@@ -96,10 +109,12 @@ enum MenuBarPrice {
         from old: Label,
         to new: Label,
         width: CGFloat,
-        progress: CGFloat
+        progress: CGFloat,
+        tint: NSColor? = nil
     ) -> NSImage {
-        let out = attributed(old)
-        let into = attributed(new)
+        let colour = tint ?? .black
+        let out = attributed(old, colour: colour)
+        let into = attributed(new, colour: colour)
         let lift = ceil(max(out.size().height, into.size().height))
         let canvas = NSSize(
             width: contentWidth(out.size().width > into.size().width ? out : into, width),
@@ -114,7 +129,7 @@ enum MenuBarPrice {
             into.draw(at: NSPoint(x: 0.5, y: travel - lift))
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = tint == nil
         return image
     }
 
@@ -131,7 +146,7 @@ enum MenuBarPrice {
 
     @MainActor static func image(for store: Store) -> NSImage? {
         guard let label = label(for: store) else { return nil }
-        return image(label, width: store.menuBarWidth)
+        return image(label, width: store.menuBarWidth, tint: tint(store.menuBarTint))
     }
 
     /// Half a point of headroom on the left: the glyphs of a font's bounding
