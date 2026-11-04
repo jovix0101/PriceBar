@@ -25,10 +25,18 @@ CONFIG="${1:-release}"
 VERSION="${VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 
-echo "==> Building ($CONFIG)"
-swift build -c "$CONFIG"
+# A release build is made for both kinds of Mac, so that one download runs on
+# an Intel one too. A working copy is built for this Mac alone: twice the wait
+# for a binary only this Mac will run.
+ARCH_FLAGS=""
+if [[ "${UNIVERSAL:-0}" == "1" ]]; then
+    ARCH_FLAGS="--arch arm64 --arch x86_64"
+fi
 
-BINARY="$(swift build -c "$CONFIG" --show-bin-path)/$APP_NAME"
+echo "==> Building ($CONFIG)"
+swift build -c "$CONFIG" $ARCH_FLAGS
+
+BINARY="$(swift build -c "$CONFIG" $ARCH_FLAGS --show-bin-path)/$APP_NAME"
 
 echo "==> Packaging $APP"
 rm -rf "$APP"

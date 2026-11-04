@@ -309,6 +309,8 @@ Binance 内部的两个域名互为备份（同一份报价），这是唯一的
   `PriceBar-<版本>.zip` 与固定名的 `PriceBar.zip`
 - 推 `main` → 重写 `nightly` 预发布，每次构建替换附件
 - `build.sh` 读 `VERSION` 与 `BUILD_NUMBER` 环境变量写进 `Info.plist`，本地默认 `0.1.0` / `1`
+- 发布版用 `UNIVERSAL=1` 编成通用二进制（arm64 + x86_64），Intel 的 Mac 也能跑；
+  本地不加这个变量，只编本机架构，省一半时间
 
 `PriceBar.zip` 这个固定名是给产品页的「下载 .app」用的——链接不能跟着版本号变。
 

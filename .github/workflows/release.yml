@@ -32,11 +32,12 @@ jobs:
             VERSION="0.0.0-${GITHUB_SHA:0:7}"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          VERSION="$VERSION" BUILD_NUMBER="$GITHUB_RUN_NUMBER" ./build.sh
+          VERSION="$VERSION" BUILD_NUMBER="$GITHUB_RUN_NUMBER" UNIVERSAL=1 ./build.sh
 
       - name: Check the bundle
         run: |
           codesign --verify --deep --strict --verbose=2 build/PriceBar.app
+          lipo -info build/PriceBar.app/Contents/MacOS/PriceBar
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
             build/PriceBar.app/Contents/Info.plist
 
