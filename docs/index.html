@@ -202,15 +202,17 @@
     color: #f2f2f4;
   }
 
-  .label .sym,
-  .label .chg {
+  .label .sym {
     font-size: 10px;
     color: #e4e5e8;
   }
 
-  /* The change sits a step lighter than the price: the price is what the
-     item is for, the change is a note on it. */
-  .label .chg { color: #b9bbc2; }
+  /* The change is drawn green or red by the app itself, whatever text
+     colour is chosen, so the mockup says the same thing. */
+  .label .chg {
+    font-size: 10px;
+    color: #34c759;
+  }
 
   .figcap {
     margin: 12px 0 0;
@@ -236,6 +238,11 @@
   .shot-panel {
     max-width: 320px;
     border-radius: 12px;
+  }
+
+  .shot-settings {
+    max-width: 300px;
+    margin: 0 auto;
   }
 
   /* ── 章节 ─────────────────────────────────────────── */
@@ -425,7 +432,7 @@
 
   <section>
     <h2>面板</h2>
-    <p class="sub">点一下菜单栏图标打开。每行一个币种，从左到右是名字、24 小时走势、现价、涨跌幅。</p>
+    <p class="sub">点一下菜单栏图标。每行一个币种：名字、24 小时走势、现价、涨跌幅。</p>
     <figure>
       <img class="shot shot-panel" src="panel.png" width="560" height="234"
            alt="PriceBar 面板：BTC、ETH、SOL 三行，各自带 24 小时行情线、美元价格与涨幅">
@@ -434,74 +441,27 @@
   </section>
 
   <section>
-    <h2>做了什么</h2>
-    <p class="sub">四件事，没有第五件。</p>
+    <h2>它还做三件事</h2>
     <dl class="spec">
-      <div>
-        <dt>价格</dt>
-        <dd>每 5 / 10 / 30 / 60 秒刷新一次。菜单栏用等宽数字排版，符号小一号，数字不会因位数变化而左右跳。</dd>
-      </div>
-      <div>
-        <dt>行情线</dt>
-        <dd>24 小时、每小时一根 K 线的收盘价，共 24 个点。只在打开面板时取，不跟着价格刷新跑。</dd>
-      </div>
-      <div>
-        <dt>提醒</dt>
-        <dd>价格高于或低于某个值时发系统通知。触发后进入待命状态，要你手动重新武装，不会反复打扰。</dd>
-      </div>
-      <div>
-        <dt>币种</dt>
-        <dd>内置 BTC、ETH，其余填交易对代码即可加入，加入前会先确认交易所认得这个币。</dd>
-      </div>
-    </dl>
-  </section>
-
-  <section>
-    <h2>数据源</h2>
-    <p class="sub">
-      四家交易所的 USDT 现货报价，设置里切换。不做跨交易所自动兜底——
-      同一时刻各家有几十美元的价差，自动切换会让数字莫名跳动。
-    </p>
-    <dl class="spec">
-      <div><dt>Binance</dt><dd><span class="num">data-api.binance.vision</span> · 一次请求可取多个币种</dd></div>
-      <div><dt>Gate</dt><dd><span class="num">api.gateio.ws</span> · 逐币请求</dd></div>
-      <div><dt>OKX</dt><dd><span class="num">www.okx.com</span> · 逐币请求，涨跌幅由 24 小时开盘价算出</dd></div>
-      <div><dt>Bybit</dt><dd><span class="num">api.bybit.com</span> · 逐币请求</dd></div>
-      <div>
-        <dt>代理</dt>
-        <dd>直连 / 跟随系统 / 自定义，只作用于当前选中的源。境外网络下 OKX、Bybit 通常需要代理。</dd>
-      </div>
+      <div><dt>行情线</dt><dd>24 小时，每小时一个点。只在打开面板时取。</dd></div>
+      <div><dt>提醒</dt><dd>价格越过你设的线，发一条系统通知。触发后待命，不反复打扰。</dd></div>
+      <div><dt>换源</dt><dd>Binance、Gate、OKX、Bybit 四家，设置里切换，境外网络可以挂代理。</dd></div>
     </dl>
     <p class="note">
-      汇率走欧洲央行参考价，每天更新一次，切到人民币时用来换算。
-      提醒的阈值始终按美元存——切货币不会让你的规则变意思。
+      计价货币可在美元和人民币之间切换，汇率每天更新一次。
+      提醒的阈值始终按美元存，换货币不会让你的规则变意思。
     </p>
   </section>
 
   <section>
     <h2>设置</h2>
-    <div class="two">
-      <figure>
-        <img class="shot" src="settings.png" width="760" height="1470"
-             alt="PriceBar 设置窗口：显示、行情、菜单栏、数据源与代理、启动五组选项">
-      </figure>
-      <div>
-        <p class="sub" style="margin-bottom:18px">
-          五组，一屏看完：计价货币与涨跌颜色、刷新间隔、菜单栏轮播、
-          数据源与代理、开机自启。
-        </p>
-        <p style="font-size:14.5px;color:var(--muted);line-height:1.75;margin:0 0 14px">
-          菜单栏那一组里勾选要轮播的币种，选间隔，下面就是实时的预览行——
-          按当前的间隔真的在轮播，快慢一眼看得出。文字颜色四档：自动跟着系统，
-          自己指定深浅，或者让它随涨跌变色。四档只管币种和价格——
-          后面那个涨跌幅不管选哪一档，都按涨跌显示红绿。
-        </p>
-        <p style="font-size:14.5px;color:var(--muted);line-height:1.75;margin:0">
-          换数据源或代理之前可以先「测试」：它会告诉你连没连上、用了多少毫秒、
-          当前币价是多少。
-        </p>
-      </div>
-    </div>
+    <figure class="shot-settings">
+      <img class="shot" src="settings.png" width="760" height="1470"
+           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏轮播、数据源与代理、开机自启">
+    </figure>
+    <p class="figcap" style="text-align:center;max-width:32em;margin:14px auto 0">
+      计价货币、刷新间隔、菜单栏轮播、数据源与代理、开机自启，五组一屏看完。
+    </p>
   </section>
 
   <section>
@@ -517,9 +477,6 @@ cd pricebar
 <span class="c"># 放到应用程序目录后打开</span>
 cp -R build/PriceBar.app /Applications/
 open /Applications/PriceBar.app</pre>
-    <p class="normie" style="margin:20px 0 0;font-size:14px;color:var(--muted)">
-      首次运行系统会问通知权限。每次重新签名后权限会被重置，需要再去通知设置里开一次。
-    </p>
   </section>
 
   <footer>
