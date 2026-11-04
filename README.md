@@ -2,6 +2,10 @@
 
 一个 macOS 菜单栏加密货币价格工具。显示实时价格，并在价格或 24h 涨跌幅越过阈值时发系统通知。
 
+需要 **macOS 14 以上**，Xcode 或 Command Line Tools。没有第三方依赖。
+
+![菜单栏与面板](docs/panel.png)
+
 ## 跑起来
 
 ```bash
@@ -9,14 +13,14 @@
 open build/PriceBar.app
 ```
 
-测试用 `swift test`。
+测试用 `swift test`。要连真实行情跑网络测试：`NETWORK_TESTS=1 swift test`。
 
 ## 用 Xcode
 
 Xcode 打开的是 Swift Package，不是 .xcodeproj：
 
 ```bash
-xed ~/Workspaces/PriceBar     # 或者 File > Open 选这个目录
+xed .                          # 或者 File > Open 选这个目录
 ```
 
 **预览**：打开 `Sources/PriceBar/PanelView.swift`，右侧 Canvas（`⌥⌘↩` 开关）有三个预览——
@@ -70,7 +74,8 @@ Sources/PriceBar/           外壳
   Notifier.swift            系统通知与权限
   LoginItem.swift           开机自启
 Tests/PriceBarCoreTests/    43 个测试（Swift Testing）
-reference-go/               最早用 MyGo 写的原型，已弃用，留作参考
+docs/                       产品展示页（GitHub Pages，纯静态）
+build.sh                    打包脚本：编译、写 Info.plist、签名
 ```
 
 ## 界面
@@ -226,3 +231,4 @@ Binance 内部的两个域名互为备份（同一份报价），这是唯一的
 
 - 每次 `./build.sh` 重新做 ad-hoc 签名，签名变了 macOS 可能把通知权限重置，需要重新允许一次
 - 未做 App Sandbox。若以后要上架，需加 `com.apple.security.network.client` 权限
+- 没有公证（notarize）。首次打开若被拦，右键「打开」一次即可
