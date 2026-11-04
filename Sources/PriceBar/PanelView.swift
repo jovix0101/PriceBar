@@ -15,7 +15,7 @@ struct PanelView: View {
             Divider()
             footer
         }
-        .frame(width: 320)
+        .frame(width: 280)
         .padding(.vertical, 6)
     }
 
@@ -140,7 +140,11 @@ private struct PriceRow: View {
             // A placeholder while the line is on its way, so that the prices
             // beside it do not shift when it arrives.
             if let line = store.lines[quote.coin] {
-                Sparkline(values: line, color: store.changeColors.color(for: line.last! - line.first!))
+                // The line takes the ticker's side, not its own first-to-last
+                // reading: the two are the same 24 hours counted a little
+                // differently, and a red line beside a green number reads as
+                // a bug even when both are right.
+                Sparkline(values: line, color: changeColor)
             } else {
                 Color.clear.frame(width: Sparkline.width, height: Sparkline.height)
             }
@@ -165,7 +169,7 @@ private struct PriceRow: View {
                 .font(.system(.caption2, weight: contrast == .increased ? .bold : .regular))
                 .monospacedDigit()
                 .foregroundStyle(changeColor)
-                .frame(width: 68, alignment: .trailing)
+                .frame(width: 54, alignment: .trailing)
 
             // The space is always kept, so a row does not change width as
             // the pointer crosses it; the bell shows itself on hover, and

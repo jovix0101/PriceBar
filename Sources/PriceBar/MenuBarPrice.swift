@@ -33,13 +33,24 @@ enum MenuBarPrice {
     /// dark by itself, which is what "自动" means. A colour of its own gives
     /// up that adaptation on purpose: it is for a menu bar that reads as light
     /// while the system says dark, or the other way round.
-    static func tint(_ choice: MenuBarTint) -> NSColor? {
+    ///
+    /// "随涨跌" reads the change and takes the panel's own green or red, so
+    /// that the number in the menu bar and the number in the panel cannot
+    /// disagree. A change with no side of its own — one that prints as
+    /// "0.00%" — goes back to the template, since there is nothing to colour.
+    static func tint(_ choice: MenuBarTint, change: Double, colors: ChangeColors) -> NSColor? {
         switch choice {
-        case .automatic: nil
-        case .dark: .black
-        case .light: .white
+        case .automatic: return nil
+        case .dark: return .black
+        case .light: return .white
+        case .change:
+            guard let green = colors.isGreen(change) else { return nil }
+            return green ? .systemGreen : .systemRed
         }
     }
+
+    /// U+2009. The separator between the currency and the number.
+    private static let thinSpace = "\u{2009}"
 
     static func attributed(_ label: Label, colour: NSColor = .black) -> NSAttributedString {
         let smallFont = NSFont.systemFont(ofSize: 10, weight: .medium)
@@ -53,8 +64,11 @@ enum MenuBarPrice {
             string: label.symbol,
             attributes: [.font: smallFont, .foregroundColor: colour]
         ))
+        // A thin space, not a full one: the symbol is a size down already, and
+        // a full space at the digits' size opens a gap wide enough to read as
+        // a gap rather than as the symbol belonging to the number.
         text.append(NSAttributedString(
-            string: " " + label.amount,
+            string: thinSpace + label.amount,
             attributes: [.font: digitsFont, .foregroundColor: colour]
         ))
         if !label.change.isEmpty {
@@ -144,9 +158,17 @@ enum MenuBarPrice {
         )
     }
 
+    @MainActor static func tint(for store: Store) -> NSColor? {
+        tint(
+            store.menuBarTint,
+            change: store.menuBarQuote?.change ?? 0,
+            colors: store.changeColors
+        )
+    }
+
     @MainActor static func image(for store: Store) -> NSImage? {
         guard let label = label(for: store) else { return nil }
-        return image(label, width: store.menuBarWidth, tint: tint(store.menuBarTint))
+        return image(label, width: store.menuBarWidth, tint: tint(for: store))
     }
 
     /// Half a point of headroom on the left: the glyphs of a font's bounding

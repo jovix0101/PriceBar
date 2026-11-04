@@ -25,7 +25,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
 
     /// The colour the label is drawn in, or nil to keep it a template image
     /// and let the menu bar tint it.
-    private var tint: NSColor? { MenuBarPrice.tint(store.menuBarTint) }
+    private var tint: NSColor? { MenuBarPrice.tint(for: store) }
 
     init(store: Store) {
         self.store = store
@@ -138,6 +138,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
             _ = store.menuBarWidth
             _ = store.currency
             _ = store.menuBarTint
+            _ = store.changeColors
         } onChange: { [weak self] in
             // The change is still being written when this is called, so the
             // redraw waits for the next turn of the run loop.

@@ -125,9 +125,13 @@ struct SettingsView: View {
                 } else {
                     noteText("按面板里的顺序轮播，打开面板时暂停。")
                 }
-                if store.menuBarTint == .automatic {
+                switch store.menuBarTint {
+                case .automatic:
                     noteText("自动：菜单栏按壁纸明暗自己着色，图标跟着系统变。")
-                } else {
+                case .change:
+                    noteText("随涨跌：跟着上面「涨跌颜色」走，和面板里的百分比同一个色。")
+                    noteText("涨跌幅正好为 0 时没有方向，交回系统着色。")
+                case .dark, .light:
                     noteText("固定用\(store.menuBarTint.label)，不随下次换壁纸变化。")
                 }
             }
@@ -277,7 +281,7 @@ struct SettingsView: View {
         HStack(spacing: 4) {
             if let image = MenuBarPrice.image(for: store) {
                 Image(nsImage: image)
-                    .renderingMode(store.menuBarTint == .automatic ? .template : .original)
+                    .renderingMode(MenuBarPrice.tint(for: store) == nil ? .template : .original)
                     .foregroundStyle(.primary)
             } else {
                 Text("—")
@@ -295,7 +299,10 @@ struct SettingsView: View {
     /// be white on white and say nothing.
     private var backdrop: AnyShapeStyle {
         switch store.menuBarTint {
-        case .automatic: AnyShapeStyle(.quaternary.opacity(0.5))
+        // Green and red are read against the wallpaper like any other
+        // menu bar item, so the swatch for "随涨跌" is the same neutral
+        // one "自动" sits on.
+        case .automatic, .change: AnyShapeStyle(.quaternary.opacity(0.5))
         case .dark: AnyShapeStyle(Color.white.opacity(0.9))
         case .light: AnyShapeStyle(Color.black.opacity(0.75))
         }

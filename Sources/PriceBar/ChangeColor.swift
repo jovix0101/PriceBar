@@ -8,11 +8,7 @@ import PriceBarCore
 /// both ask here, so that the two never disagree.
 extension ChangeColors {
     func color(for change: Double) -> Color {
-        guard change != 0 else { return .secondary }
-        let up = change > 0
-        switch self {
-        case .greenUp: return Color(nsColor: up ? .systemGreen : .systemRed)
-        case .redUp: return Color(nsColor: up ? .systemRed : .systemGreen)
-        }
+        guard let green = isGreen(change) else { return .secondary }
+        return Color(nsColor: green ? .systemGreen : .systemRed)
     }
 }

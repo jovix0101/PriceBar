@@ -29,6 +29,20 @@ public enum ChangeColors: String, Codable, CaseIterable, Sendable {
         case .redUp: "红涨绿跌"
         }
     }
+
+    /// Whether this change should be drawn green, or nil when it is too small
+    /// to have a side at all.
+    ///
+    /// The panel's percentage and the menu bar's label both ask here, so that
+    /// the two can never point opposite ways.
+    public func isGreen(_ change: Double) -> Bool? {
+        guard abs(change) >= 0.005 else { return nil }
+        let up = change > 0
+        switch self {
+        case .greenUp: return up
+        case .redUp: return !up
+        }
+    }
 }
 
 /// What colour the menu bar writes the price in.
@@ -38,14 +52,20 @@ public enum ChangeColors: String, Codable, CaseIterable, Sendable {
 /// translucent now: over a bright wallpaper the tint it picks can sit on a
 /// light strip and be hard to read. These are the way out — draw the label
 /// dark, or light, and stop following.
+///
+/// The fourth choice gives the colour back to the price's own movement: green
+/// when it is up, red when it is down, the same way the panel's percentage is
+/// drawn. A change too small to have a side falls back to the menu bar's own
+/// tint, because there is nothing to colour.
 public enum MenuBarTint: String, Codable, CaseIterable, Sendable {
-    case automatic, dark, light
+    case automatic, dark, light, change
 
     public var label: String {
         switch self {
         case .automatic: "自动"
         case .dark: "深色"
         case .light: "浅色"
+        case .change: "随涨跌"
         }
     }
 }

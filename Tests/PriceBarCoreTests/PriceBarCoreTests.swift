@@ -271,6 +271,27 @@ struct SettingsFileTests {
         let read = try JSONDecoder().decode(AppSettings.self, from: Data(odd.utf8))
         #expect(read.menuBarTint == .automatic)
         #expect(read.coins == ["BTC"])
+        // The colour that follows the change is a value of its own, and
+        // survives the same way.
+        let following = try JSONDecoder().decode(
+            AppSettings.self, from: Data(#"{"menuBarTint":"change"}"#.utf8))
+        #expect(following.menuBarTint == .change)
+    }
+
+    @Test("随涨跌：谁涨谁跌，面板和菜单栏不会指反")
+    func changeColoursAgree() {
+        // Green up: up is green, down is red.
+        #expect(ChangeColors.greenUp.isGreen(2.02) == true)
+        #expect(ChangeColors.greenUp.isGreen(-0.31) == false)
+        // Red up: the same movement, the other colour.
+        #expect(ChangeColors.redUp.isGreen(2.02) == false)
+        #expect(ChangeColors.redUp.isGreen(-0.31) == true)
+        // Something too small to print an arrow has no side to colour, so
+        // both the arrow and the colour go quiet together.
+        #expect(ChangeColors.greenUp.isGreen(0) == nil)
+        #expect(ChangeColors.greenUp.isGreen(0.004) == nil)
+        #expect(ChangeColors.redUp.isGreen(-0.004) == nil)
+        #expect(ChangeColors.greenUp.isGreen(0.005) == true)
     }
 
     @Test("一个读不懂的字段不会带走其余设置")
