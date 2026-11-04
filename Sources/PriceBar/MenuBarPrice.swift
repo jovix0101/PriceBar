@@ -1,4 +1,5 @@
 import AppKit
+import PriceBarCore
 
 /// The price as the menu bar item draws it.
 ///
@@ -21,6 +22,9 @@ enum MenuBarPrice {
         let coin: String
         let symbol: String
         let amount: String
+        /// The 24h change after the price, arrow and all: "▲2.02%". Empty when
+        /// there is none to show.
+        let change: String
     }
 
     static func attributed(_ label: Label) -> NSAttributedString {
@@ -40,12 +44,34 @@ enum MenuBarPrice {
             string: " " + label.amount,
             attributes: [.font: digitsFont, .foregroundColor: colour]
         ))
+        if !label.change.isEmpty {
+            // A step lighter: the price is what the item is for, the change is
+            // a note on it. Template images keep the alpha they were drawn
+            // with, so this dims against the menu bar's own tint.
+            text.append(NSAttributedString(
+                string: " " + label.change,
+                attributes: [
+                    .font: smallFont,
+                    .foregroundColor: colour.withAlphaComponent(0.75),
+                ]
+            ))
+        }
         return text
     }
 
     /// How wide this coin's label would be, drawn on its own.
     static func width(of label: Label) -> CGFloat {
         ceil(attributed(label).size().width)
+    }
+
+    /// The change text to measure the item's width against.
+    ///
+    /// A change that rounds to nothing prints as nothing, and a label that
+    /// loses forty points the moment a coin crosses flat would shift every
+    /// icon beside it. So an empty change is measured as if it were there.
+    static func widthReserve(_ change: Double) -> String {
+        let text = formatArrowed(change)
+        return text.isEmpty ? "▲00.00%" : text
     }
 
     /// `width` is the room the label has: the widest label of the coins the
@@ -98,7 +124,8 @@ enum MenuBarPrice {
         return Label(
             coin: quote.coin,
             symbol: store.currency.symbol,
-            amount: store.amount(quote.price)
+            amount: store.amount(quote.price),
+            change: formatArrowed(quote.change)
         )
     }
 

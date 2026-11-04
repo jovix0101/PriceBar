@@ -166,7 +166,8 @@ final class Store {
             MenuBarPrice.width(of: MenuBarPrice.Label(
                 coin: quote.coin,
                 symbol: currency.symbol,
-                amount: amount(quote.price)
+                amount: amount(quote.price),
+                change: MenuBarPrice.widthReserve(quote.change)
             ))
         }
         return labels.max() ?? 0

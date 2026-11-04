@@ -41,6 +41,18 @@ struct FormatTests {
         #expect(try PriceAPI.closes(from: Data("[[1,2,3]]".utf8), source: .binance).isEmpty)
     }
 
+    @Test("菜单栏的涨跌幅用箭头表明方向")
+    func arrowedChange() {
+        #expect(formatArrowed(2.02) == "▲2.02%")
+        #expect(formatArrowed(-0.31) == "▼0.31%")
+        #expect(formatArrowed(0) == "")
+        // Rounds to 0.00%: no arrow rather than one pointing at nothing.
+        #expect(formatArrowed(0.004) == "")
+        #expect(formatArrowed(-0.004) == "")
+        // Whole numbers keep their short form.
+        #expect(formatArrowed(5) == "▲5%")
+    }
+
     @Test("A percentage threshold keeps the decimals it was given")
     func percentKeepsDecimals() {
         #expect(formatPercent(5) == "5%")

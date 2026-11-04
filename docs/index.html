@@ -202,10 +202,15 @@
     color: #f2f2f4;
   }
 
-  .label .sym {
+  .label .sym,
+  .label .chg {
     font-size: 10px;
     color: #e4e5e8;
   }
+
+  /* The change sits a step lighter than the price: the price is what the
+     item is for, the change is a note on it. */
+  .label .chg { color: #b9bbc2; }
 
   .figcap {
     margin: 12px 0 0;
@@ -412,9 +417,10 @@
         <span class="coin">BTC</span>
         <span class="sym">$</span>
         <span>78,180</span>
+        <span class="chg">▲2.02%</span>
       </div>
     </div>
-    <p class="figcap">菜单栏里长这样。勾选多个币种时，按设定间隔轮播。</p>
+    <p class="figcap">菜单栏里长这样：币种、价格，后面跟着 24 小时涨跌幅。勾选多个币种时，按设定间隔轮播。</p>
   </div>
 
   <section>

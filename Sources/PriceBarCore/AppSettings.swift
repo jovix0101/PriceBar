@@ -252,6 +252,20 @@ public func formatSigned(_ change: Double) -> String {
     String(format: "%+.2f%%", change)
 }
 
+/// A 24h change as the menu bar writes it: an arrow for the direction, then
+/// the number: "▲2.02%", "▼0.31%".
+///
+/// The arrow carries what colour carries in the panel. A menu bar item drawn
+/// as a template image takes one tint and cannot be green or red, and an arrow
+/// reads at a glance for someone who cannot tell those two colours apart.
+///
+/// A change that would print as "0.00%" gets no arrow: pointing at nothing is
+/// worse than saying nothing.
+public func formatArrowed(_ change: Double) -> String {
+    guard abs(change) >= 0.005 else { return "" }
+    return (change > 0 ? "▲" : "▼") + formatPercent(change)
+}
+
 /// A threshold as a percentage, without its sign: "5%", "0.5%".
 ///
 /// The decimals a user typed are kept — a rule at 0.5% that reads "0%" is a
