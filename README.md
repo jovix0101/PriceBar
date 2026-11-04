@@ -22,7 +22,7 @@ xed ~/Workspaces/PriceBar     # 或者 File > Open 选这个目录
 **预览**：打开 `Sources/PriceBar/PanelView.swift`，右侧 Canvas（`⌥⌘↩` 开关）有三个预览——
 面板、人民币、拿不到行情。改代码会实时刷新。
 
-预览只能预览面板。`MenuBarExtra` 本身没法在 Canvas 里渲染，那是窗口级的东西。
+预览只能预览面板。菜单栏图标是 `NSStatusItem` 画的，Canvas 里渲染不出来。
 
 **运行**：左上角 scheme 选 `PriceBar`，按 `⌘R`。菜单栏会出现价格。
 
@@ -55,7 +55,9 @@ Sources/PriceBarCore/       纯逻辑，不依赖 SwiftUI，可测试
   MenuBarOrder.swift        菜单栏币种的勾选顺序
   ErrorText.swift           把网络错误翻成人话
 Sources/PriceBar/           外壳
-  PriceBarApp.swift         MenuBarExtra、主菜单
+  main.swift               入口，建 NSApplication 与 delegate
+  PriceBarApp.swift        AppDelegate：store、主菜单、启动
+  StatusItem.swift         菜单栏图标、面板 popover、右键菜单、滚动动画
   PanelView.swift           面板与价格行
   AddCoinView.swift         添加币种的 popover
   RulesView.swift           提醒规则的 popover
@@ -63,7 +65,7 @@ Sources/PriceBar/           外壳
   SettingsWindow.swift      设置窗口的承载
   Sparkline.swift           24 小时行情线
   ChangeColor.swift         涨跌颜色的取色
-  MenuBarPrice.swift        菜单栏价格，画成图片
+  MenuBarPrice.swift        菜单栏价格，画成图片，含滚动动画的中间帧
   Store.swift               状态、轮询、写入设置
   Notifier.swift            系统通知与权限
   LoginItem.swift           开机自启
@@ -74,7 +76,8 @@ reference-go/               最早用 MyGo 写的原型，已弃用，留作参�
 ## 界面
 
 - **菜单栏**：`BTC $ 76,584` 这样的形式，多个币种时按设定间隔轮播
-- **点图标**：面板，每个币种一行（价格 + 24h 行情线 + 涨跌），行尾铃铛设提醒
+- **左键图标**：面板，每个币种一行（价格 + 24h 行情线 + 涨跌），行尾铃铛设提醒
+- **右键图标**：设置… / 退出
 - **`+`**：添加币种，会先向交易所校验交易对是否存在
 - **右键行**：打开提醒、加/移菜单栏轮播、移除
 - **面板底栏**：刷新、加币、「菜单栏」复选菜单、齿轮（设置与退出）
@@ -157,19 +160,34 @@ Binance 内部的两个域名互为备份（同一份报价），这是唯一的
 - **宽度按最宽的币种预留**，否则菜单栏图标会随价格位数左右移动
 - 设置里那行预览**按真实间隔轮播**：光看几个数字判断不了快慢
 
-### 面板开合是怎么知道的
+### 为什么不用 MenuBarExtra
 
-`MenuBarExtra` 关闭面板后**不会销毁它的视图**，所以 `onAppear` / `onDisappear`
-只在第一次打开时各跑一次，之后再也不会触发。用它判断「面板是不是开着」，
-结果就是轮播永远暂停、行情线永远不刷新。
+起初用的是 SwiftUI 的 `MenuBarExtra`，三个问题凑在一起，只能换掉：
 
-窗口本身知道答案，但不会主动说：`didBecomeKey`、`didResignKey`、
-`didChangeOcclusionState` 三个通知实测只在开面板时到过一次，关面板时一个都没到。
-`isVisible` 更没用——面板正显示着，它也返回 `false`。
+1. **面板关掉后视图不销毁**，`onAppear` / `onDisappear` 只各跑一次。用它判断
+   「面板开着没有」，结果就是轮播永远暂停、行情线永远不刷新。想绕过去得靠轮询窗口的
+   `occlusionState`，而 `isVisible` 在面板正显示时也返回 `false`，三个窗口通知在关面板时
+   一个都不来。
+2. **不支持右键菜单**，设置和退出只能塞在面板的齿轮里。
+3. **标签只能用文字**，菜单栏按自己的字体重排，指定字号无效；也没法做换币种的动画。
 
-能用的只有 `occlusionState.contains(.visible)`，而且得主动去问：
-`PanelWindowProbe` 把面板的窗口交给 `Store`，`Store` 每 0.5 秒读一次这个属性，
-状态翻转时才行动（开→取行情线，关→轮播归位）。代价是每秒两次属性读。
+现在菜单栏图标是 `NSStatusItem` + `NSPopover`（`StatusItem.swift`）：
+左键开合面板，右键弹「设置… / 退出」，`NSPopoverDelegate` 直接告诉 `Store`
+面板开了还是关了，不用轮询。面板内容是同一个 `PanelView`。
+
+`main.swift` 建 `NSApplication` 和 delegate，不用 SwiftUI 的 `App`：
+一个菜单栏 app 没有窗口可开，而任何 scene 都会开一个不想要的窗口——
+`Settings { EmptyView() }` 在启动那一刻就开了一个 900×450 的空窗口。
+
+### 换币种的滚动
+
+菜单栏标签是一张 `NSImage`（币种和货币符号小一号、和数字同基线，见下），
+所以能逐帧重画。换币种时旧标签向上滑出、新标签从下跟上，200ms，ease-out：
+
+- **只在换币种时动**。价格每 10 秒跳一次，那也动就成了干扰
+- **首次拿价、切货币、切数据源不动**，只有从 A 币切到 B 币才滚
+- **尊重「减少动态效果」**（`accessibilityDisplayShouldReduceMotion`），开了就直接换图
+- 定时器挂在 `.common` 模式，菜单正在跟踪或窗口正在拖时也照常出帧
 
 ## 设置
 
@@ -206,6 +224,5 @@ Binance 内部的两个域名互为备份（同一份报价），这是唯一的
 
 ## 已知缺口
 
-- 菜单栏图标不支持右键菜单（`MenuBarExtra` 没有这个能力），设置和退出放在面板的齿轮里
 - 每次 `./build.sh` 重新做 ad-hoc 签名，签名变了 macOS 可能把通知权限重置，需要重新允许一次
 - 未做 App Sandbox。若以后要上架，需加 `com.apple.security.network.client` 权限

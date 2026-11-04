@@ -17,13 +17,6 @@ struct PanelView: View {
         }
         .frame(width: 320)
         .padding(.vertical, 6)
-        // The panel's window is followed rather than its view lifecycle:
-        // `MenuBarExtra` never calls `onDisappear`, so the view cannot tell
-        // when it is closed. Opening the panel reads the lines, if they are
-        // old; closing it lets the menu bar take turns again.
-        .background(PanelWindowProbe { window in
-            store.panelWindow = window
-        })
     }
 
     private var priceList: some View {

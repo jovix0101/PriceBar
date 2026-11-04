@@ -39,26 +39,24 @@ final class Store {
 
     /// Which of the menu bar coins is showing right now.
     private(set) var rotationIndex = 0
-    /// The panel's own window, once SwiftUI has put the content into one.
-    ///
-    /// Read instead of trusting `onAppear` and `onDisappear`: `MenuBarExtra`
-    /// keeps the panel's view alive after it closes, so those run once and
-    /// never again. The window does know — but it will not say so: neither the
-    /// key-window notifications nor the occlusion one arrive when the panel
-    /// opens and closes. Its state does change, so it is asked on a timer,
-    /// which costs one property read twice a second.
-    @ObservationIgnored weak var panelWindow: NSWindow? {
-        didSet { watchPanel() }
+    /// Whether the panel is on screen. Told by the status item, whose popover
+    /// knows when it opens and closes.
+    private(set) var panelIsOnScreen = false
+
+    /// The panel opened: it wants its lines, and the menu bar holds still
+    /// while it is being read.
+    func panelOpened() {
+        guard !panelIsOnScreen else { return }
+        panelIsOnScreen = true
+        loadLines()
     }
 
-    @ObservationIgnored private var panelWatch: Timer?
-    @ObservationIgnored private var panelWasOnScreen = false
-
-    /// Whether the panel is on screen right now. `isVisible` is no help on its
-    /// own: `MenuBarExtra`'s window reports it as false even while showing.
-    var panelIsOnScreen: Bool {
-        guard let panelWindow else { return false }
-        return panelWindow.occlusionState.contains(.visible) && panelWindow.isVisible
+    /// The panel closed: the menu bar takes turns again, starting from the
+    /// first coin, so that it always opens on the same one it closed with.
+    func panelClosed() {
+        guard panelIsOnScreen else { return }
+        panelIsOnScreen = false
+        rotationIndex = 0
     }
 
     var currency: Currency {
@@ -165,11 +163,11 @@ final class Store {
     /// which is the one already showing.
     var menuBarWidth: CGFloat {
         let labels = menuBarQuotes.map { quote in
-            MenuBarPrice.width(
+            MenuBarPrice.width(of: MenuBarPrice.Label(
                 coin: quote.coin,
                 symbol: currency.symbol,
                 amount: amount(quote.price)
-            )
+            ))
         }
         return labels.max() ?? 0
     }
@@ -282,30 +280,6 @@ final class Store {
                 guard !self.panelIsOnScreen else { return }
                 self.rotationIndex += 1
             }
-        }
-    }
-
-    /// Follows the panel window: on screen means its lines are worth reading,
-    /// off screen means the menu bar can start taking turns again.
-    private func watchPanel() {
-        panelWatch?.invalidate()
-        panelWatch = nil
-        guard panelWindow != nil else { return }
-        panelWatch = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.panelVisibilityChanged() }
-        }
-    }
-
-    private func panelVisibilityChanged() {
-        let onScreen = panelIsOnScreen
-        guard onScreen != panelWasOnScreen else { return }
-        panelWasOnScreen = onScreen
-        if onScreen {
-            loadLines()
-        } else {
-            // Back to the first coin, so the panel always closes on the same
-            // one it opened with.
-            rotationIndex = 0
         }
     }
 

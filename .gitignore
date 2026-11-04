@@ -2,4 +2,9 @@
 build/
 .swiftpm/
 .DS_Store
-reference-go/pricebar
+
+# 本地开发用的代理技能与原型，不随仓库发布
+.agents/
+.claude/
+skills-lock.json
+reference-go/

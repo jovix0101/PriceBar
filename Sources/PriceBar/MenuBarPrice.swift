@@ -14,42 +14,46 @@ import AppKit
 /// turns: a label that grows and shrinks moves everything beside it in the
 /// menu bar, which is worse to look at than a few points of slack.
 enum MenuBarPrice {
-    /// The coin on the left, the currency a size down, then the price.
-    static func attributed(coin: String, symbol: String, amount: String) -> NSAttributedString {
+    /// One coin's label: the coin on the left, the currency a size down, then
+    /// the price. Compared to tell a new coin from a new price for the same
+    /// one.
+    struct Label: Equatable {
+        let coin: String
+        let symbol: String
+        let amount: String
+    }
+
+    static func attributed(_ label: Label) -> NSAttributedString {
         let smallFont = NSFont.systemFont(ofSize: 10, weight: .medium)
         let digitsFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
         let colour = NSColor.black
 
         let text = NSMutableAttributedString(
-            string: coin + " ",
+            string: label.coin + " ",
             attributes: [.font: smallFont, .foregroundColor: colour]
         )
         text.append(NSAttributedString(
-            string: symbol,
+            string: label.symbol,
             attributes: [.font: smallFont, .foregroundColor: colour]
         ))
         text.append(NSAttributedString(
-            string: " " + amount,
+            string: " " + label.amount,
             attributes: [.font: digitsFont, .foregroundColor: colour]
         ))
         return text
     }
 
     /// How wide this coin's label would be, drawn on its own.
-    static func width(coin: String, symbol: String, amount: String) -> CGFloat {
-        ceil(attributed(coin: coin, symbol: symbol, amount: amount).size().width)
+    static func width(of label: Label) -> CGFloat {
+        ceil(attributed(label).size().width)
     }
 
     /// `width` is the room the label has: the widest label of the coins the
     /// menu bar shows, so that the item never changes size between them.
-    static func image(coin: String, symbol: String, amount: String, width: CGFloat) -> NSImage {
-        let text = attributed(coin: coin, symbol: symbol, amount: amount)
+    static func image(_ label: Label, width: CGFloat) -> NSImage {
+        let text = attributed(label)
         let size = text.size()
-
-        // Half a point of headroom on the left: the glyphs of a font's
-        // bounding box can be a hair wider than the box it reports, and a
-        // clipped edge is visible at this size.
-        let canvas = NSSize(width: max(width, ceil(size.width)) + 1, height: ceil(size.height))
+        let canvas = NSSize(width: contentWidth(text, width), height: ceil(size.height))
         let image = NSImage(size: canvas, flipped: false) { _ in
             text.draw(at: NSPoint(x: 0.5, y: 0))
             return true
@@ -58,13 +62,55 @@ enum MenuBarPrice {
         return image
     }
 
-    @MainActor static func image(for store: Store) -> NSImage? {
+    /// A frame of the scroll: `progress` runs 0 to 1, moving the old label up
+    /// and out while the new one comes up from below it. Both are cut off at
+    /// the item's edges, which is what makes it read as one label turning
+    /// rather than two sliding past each other.
+    static func scrolling(
+        from old: Label,
+        to new: Label,
+        width: CGFloat,
+        progress: CGFloat
+    ) -> NSImage {
+        let out = attributed(old)
+        let into = attributed(new)
+        let lift = ceil(max(out.size().height, into.size().height))
+        let canvas = NSSize(
+            width: contentWidth(out.size().width > into.size().width ? out : into, width),
+            height: lift
+        )
+
+        let image = NSImage(size: canvas, flipped: false) { _ in
+            let travel = progress * lift
+            // The old label leaves upward, the new one follows it into the
+            // space it is leaving, so the two are always exactly one apart.
+            out.draw(at: NSPoint(x: 0.5, y: travel))
+            into.draw(at: NSPoint(x: 0.5, y: travel - lift))
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    /// The label the menu bar is showing now, or nil before the first price.
+    @MainActor static func label(for store: Store) -> Label? {
         guard let quote = store.menuBarQuote else { return nil }
-        return image(
+        return Label(
             coin: quote.coin,
             symbol: store.currency.symbol,
-            amount: store.amount(quote.price),
-            width: store.menuBarWidth
+            amount: store.amount(quote.price)
         )
+    }
+
+    @MainActor static func image(for store: Store) -> NSImage? {
+        guard let label = label(for: store) else { return nil }
+        return image(label, width: store.menuBarWidth)
+    }
+
+    /// Half a point of headroom on the left: the glyphs of a font's bounding
+    /// box can be a hair wider than the box it reports, and a clipped edge is
+    /// visible at this size.
+    private static func contentWidth(_ text: NSAttributedString, _ width: CGFloat) -> CGFloat {
+        max(width, ceil(text.size().width)) + 1
     }
 }
