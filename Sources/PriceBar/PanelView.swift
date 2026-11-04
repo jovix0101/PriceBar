@@ -209,11 +209,17 @@ private struct PriceRow: View {
         }
     }
 
+    /// A thin space after the arrow, the same one the menu bar uses between
+    /// its symbol and its number: the arrow points, it is not part of the
+    /// figure, but a full space opens a gap wide enough to read as two
+    /// separate readings.
     private var changeText: String {
-        if quote.change > 0 { return "▲ " + formatSigned(quote.change) }
-        if quote.change < 0 { return "▼ " + formatSigned(quote.change) }
+        if quote.change > 0 { return "▲" + Self.thinSpace + formatSigned(quote.change) }
+        if quote.change < 0 { return "▼" + Self.thinSpace + formatSigned(quote.change) }
         return formatSigned(quote.change)
     }
+
+    private static let thinSpace = "\u{2009}"
 
     private var changeColor: Color {
         store.changeColors.color(for: quote.change)
