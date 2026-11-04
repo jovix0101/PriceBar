@@ -45,10 +45,11 @@ struct FormatTests {
     func arrowedChange() {
         #expect(formatArrowed(2.02) == "▲2.02%")
         #expect(formatArrowed(-0.31) == "▼0.31%")
-        #expect(formatArrowed(0) == "")
-        // Rounds to 0.00%: no arrow rather than one pointing at nothing.
-        #expect(formatArrowed(0.004) == "")
-        #expect(formatArrowed(-0.004) == "")
+        // Rounds to 0.00%: no arrow rather than one pointing at nothing, but
+        // still a number. A blank there would read as the value being missing.
+        #expect(formatArrowed(0) == "0%")
+        #expect(formatArrowed(0.004) == "0%")
+        #expect(formatArrowed(-0.004) == "0%")
         // Whole numbers keep their short form.
         #expect(formatArrowed(5) == "▲5%")
     }

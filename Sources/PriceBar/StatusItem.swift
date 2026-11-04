@@ -22,10 +22,6 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     /// What the item is showing now, so that a change of coin can be told
     /// from a change of price.
     private var showing: MenuBarPrice.Label?
-    /// The change as the item's title. The menu bar draws a title itself, in
-    /// its own font and the colour it is given, which is how the change keeps
-    /// its green or red while the price beside it takes the chosen colour.
-    private var title: NSAttributedString? { MenuBarPrice.changeTitle(for: store) }
 
     /// The colour the label is drawn in, or nil to keep it a template image
     /// and let the menu bar tint it.
@@ -72,10 +68,6 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         item.button?.title = ""
         item.button?.setAccessibilityLabel(store.menuBarReading)
 
-        // The image is drawn at the label's own width; the room the widest
-        // coin needs is added to the title instead, so the item keeps one
-        // width without a gap opening in the middle of it.
-        let width = MenuBarPrice.width(of: label)
         let previous = showing
         showing = label
 
@@ -87,23 +79,43 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         else {
             scroll?.invalidate()
             scroll = nil
-            item.button?.image = MenuBarPrice.image(label, width: width, tint: tint)
-            item.button?.attributedTitle = title ?? NSAttributedString(string: "")
+            show(label)
             return
         }
-        roll(from: previous, to: label, width: width)
+        roll(from: previous, to: label)
+    }
+
+    /// Puts `label` in the item with no motion: the price drawn, the change
+    /// beside it as a title.
+    private func show(_ label: MenuBarPrice.Label) {
+        item.button?.image = MenuBarPrice.image(label, width: canvas(for: label), tint: tint)
+        item.button?.attributedTitle = MenuBarPrice.changeTitle(label, colors: store.changeColors)
+    }
+
+    /// The room the price is drawn into.
+    ///
+    /// Every price is drawn on the widest one's width, against the right edge
+    /// of it, and the change after it is measured too — so the whole item is
+    /// one width whatever coin is showing, the "%" stays against its right
+    /// edge, and the room left over sits out of sight before the coin.
+    private func canvas(for label: MenuBarPrice.Label) -> CGFloat {
+        MenuBarPrice.canvasWidth(
+            change: MenuBarPrice.changeWidth(label.changeValue),
+            widestPrice: store.menuBarWidth,
+            widestChange: store.menuBarChangeWidth
+        )
     }
 
     /// Slides `to` up from below while `from` leaves through the top, both
     /// cut off by the item's height. 200 ms with an ease-out tail: fast
     /// enough to read as a turn, slow enough to follow which coin is which.
-    private func roll(from: MenuBarPrice.Label, to: MenuBarPrice.Label, width: CGFloat) {
+    private func roll(from: MenuBarPrice.Label, to: MenuBarPrice.Label) {
         scroll?.invalidate()
 
         let started = Date()
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.step(from: `from`, to: to, width: width, started: started)
+                self?.step(from: `from`, to: to, started: started)
             }
         }
         // The common modes, so that the scroll keeps its frames while a menu
@@ -118,32 +130,31 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     private func step(
         from old: MenuBarPrice.Label,
         to new: MenuBarPrice.Label,
-        width: CGFloat,
         started: Date
     ) {
         let elapsed = Date().timeIntervalSince(started) / 0.2
         guard elapsed < 1 else {
             scroll?.invalidate()
             scroll = nil
-            item.button?.image = MenuBarPrice.image(new, width: width, tint: tint)
-            item.button?.attributedTitle = title ?? NSAttributedString(string: "")
+            show(new)
             return
         }
         let eased = 1 - pow(1 - elapsed, 3)
-        // The change is a title beside the drawn price, so it cannot take part
-        // in the scroll: the price rolls, and the change arrives with the new
-        // coin on the last frame. Its room is held meanwhile, in clear, or the
-        // item would narrow for the length of the roll.
-        item.button?.attributedTitle = MenuBarPrice.changeTitle(
-            new,
-            colors: store.changeColors,
-            slack: max(0, store.menuBarWidth - width),
-            visible: false
-        )
+
+        // The change cannot ride the scroll — it is a title, and a title sits
+        // on one line — so it fades instead: out while the old price leaves,
+        // in while the new one arrives. Held blank for the length of the roll,
+        // as it used to be, it read as the change being late.
+        let half = 0.5
+        item.button?.attributedTitle = if eased < half {
+            MenuBarPrice.changeTitle(old, colors: store.changeColors, opacity: 1 - eased / half)
+        } else {
+            MenuBarPrice.changeTitle(new, colors: store.changeColors, opacity: (eased - half) / half)
+        }
         item.button?.image = MenuBarPrice.scrolling(
             from: old,
             to: new,
-            width: max(width, MenuBarPrice.width(of: old)),
+            width: canvas(for: new),
             progress: CGFloat(eased),
             tint: tint
         )
@@ -156,6 +167,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         withObservationTracking {
             _ = store.menuBarQuote
             _ = store.menuBarWidth
+            _ = store.menuBarChangeWidth
             _ = store.currency
             _ = store.menuBarTint
             _ = store.changeColors

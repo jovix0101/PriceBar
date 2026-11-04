@@ -162,43 +162,36 @@ final class Store {
         return list[rotationIndex % list.count]
     }
 
-    /// The widest label the menu bar has to draw, so that the item keeps one
-    /// width while coins take turns. Read off the prices in hand; a coin whose
-    /// price has not arrived is measured at the widest price it could have,
-    /// which is the one already showing.
+    /// The widest price the menu bar has to draw, in points: every coin's
+    /// price is drawn into this width, so that the change beside it never
+    /// moves. Read off the prices in hand; a coin whose price has not arrived
+    /// is measured at the widest price it could have, which is the one already
+    /// showing.
     ///
-    /// This is the width of the drawn part alone. The change rides beside it
-    /// as the item's title and brings its own width with it, which is the same
-    /// for every coin, since an empty change is still reserved at full size.
+    /// This is the price alone. The change rides beside it as the item's title
+    /// and brings its own width with it; `menuBarChangeWidth` is how much room
+    /// that can take.
     var menuBarWidth: CGFloat {
         let labels = menuBarQuotes.map { quote in
             MenuBarPrice.width(of: MenuBarPrice.Label(
                 coin: quote.coin,
                 symbol: currency.symbol,
                 amount: amount(quote.price),
-                change: MenuBarPrice.widthReserve(quote.change),
+                change: "",
                 changeValue: quote.change
             ))
         }
         return labels.max() ?? 0
     }
 
-    /// How much room the drawn price leaves unused this second.
+    /// The widest change on the menu bar's list, in points.
     ///
-    /// The item is as wide as the widest coin on its list, so a narrower price
-    /// would otherwise leave its change stranded to the right. The change
-    /// takes that room back as clear space after itself, which keeps the item
-    /// one width and the change against the price at the same time.
-    var menuBarSlack: CGFloat {
-        guard let quote = menuBarQuote else { return 0 }
-        let drawn = MenuBarPrice.width(of: MenuBarPrice.Label(
-            coin: quote.coin,
-            symbol: currency.symbol,
-            amount: amount(quote.price),
-            change: "",
-            changeValue: quote.change
-        ))
-        return max(0, menuBarWidth - drawn)
+    /// "▲2.02%" and "▼0.31%" are not the same width. The item is kept one
+    /// width by drawing the price a little further from the left edge when the
+    /// change is short, so the difference lands before the coin rather than
+    /// after the "%".
+    var menuBarChangeWidth: CGFloat {
+        menuBarQuotes.map { MenuBarPrice.changeWidth($0.change) }.max() ?? 0
     }
 
     /// The whole label as it will read in the menu bar, price and change

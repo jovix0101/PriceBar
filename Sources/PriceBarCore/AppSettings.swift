@@ -304,9 +304,11 @@ public func formatSigned(_ change: Double) -> String {
 /// reads at a glance for someone who cannot tell those two colours apart.
 ///
 /// A change that would print as "0.00%" gets no arrow: pointing at nothing is
-/// worse than saying nothing.
+/// worse than saying nothing. It still prints the number, though. An empty
+/// change would leave the menu bar item holding room for a value that never
+/// arrives, which reads as the number being missing rather than as flat.
 public func formatArrowed(_ change: Double) -> String {
-    guard abs(change) >= 0.005 else { return "" }
+    guard abs(change) >= 0.005 else { return "0%" }
     return (change > 0 ? "▲" : "▼") + formatPercent(change)
 }
 

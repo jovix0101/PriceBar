@@ -10,6 +10,12 @@
 
 ## 跑起来
 
+从[产品页](https://jovix0101.github.io/pricebar/)或 [Releases](https://github.com/jovix0101/pricebar/releases/latest)
+下载 `PriceBar.zip`，解压后把 `PriceBar.app` 拖进「应用程序」。没有公证，首次打开
+若被拦，右键点「打开」一次即可。
+
+自己编：
+
 ```bash
 ./build.sh            # 编译并打包成 build/PriceBar.app
 open build/PriceBar.app
@@ -75,8 +81,9 @@ Sources/PriceBar/           外壳
   Store.swift               状态、轮询、写入设置
   Notifier.swift            系统通知与权限
   LoginItem.swift           开机自启
-Tests/PriceBarCoreTests/    43 个测试（Swift Testing）
-docs/                       产品展示页（GitHub Pages，纯静态）
+Tests/PriceBarCoreTests/    46 个测试（Swift Testing）
+.github/workflows/          GitHub Actions：编译并发布 .app
+docs/                       产品页与截图（GitHub Pages）
 build.sh                    打包脚本：编译、写 Info.plist、签名
 ```
 
@@ -109,9 +116,8 @@ app 不知道你从哪儿来，就让你自己选。默认绿涨红跌。
 - **箭头不依赖颜色**：色觉障碍的人读得到方向，涨跌幅归零时也没有颜色可依。
   写法与面板里的 `▲ +2.02%` 一致。
 - **小一号**：价格是这一项的正事，涨跌幅是它的注记。和价格同大就成了两个数字在争。
-- **归零时不画箭头**：涨跌幅四舍五入到 `0.00%` 时只留空，一个指向虚无的箭头比没有更糟。
-  但宽度仍按涨跌幅预留（`MenuBarPrice.widthReserve`），否则币种一贴近零点，
-  菜单栏图标就缩四十来点，旁边的图标全跟着挪。
+- **归零时写 `0%`**：涨跌幅四舍五入到 `0.00%` 时不画箭头——一个指向虚无的箭头比没有更糟——
+  但数字留着。早先这里留的是空白，宽度照占，看着像数值没取到。
 
 **涨跌幅永远是红绿，不受文字颜色那四档影响。** 四档只管币种编码和价格两部分。
 
@@ -119,8 +125,13 @@ app 不知道你从哪儿来，就让你自己选。默认绿涨红跌。
 template 时连颜色都交给系统），涨跌幅是这张图片后面的**标题**（`NSStatusItem.button.attributedTitle`），
 颜色由我们自己给。于是「价格听选项的、涨跌幅听涨跌的」自然成立，四种组合都不用特判。
 
-标题的宽度按 `▲00.00%` 这种最宽的样本固定住，涨跌幅本身靠透明 hair space 补齐——
-标题是会撑宽图标项的东西，一个币显示 `▲2%`、下一个显示 `▲1.73%`，旁边的图标就跟着挪。
+标题就是它自己的宽度，不补空格。图标项之所以不变宽，是因为**价格那边让出了地方**：
+价格画在一块「最宽价格 + 这条涨跌幅省下的宽度」的画布上，并且贴着画布的右边画
+（`MenuBarPrice.canvasWidth`）。于是涨跌幅永远贴着右边缘，省下的余量落到币种左边——
+读起来是菜单栏自己的间距，而不是 `%` 后面拖着一截空白。
+
+币种换来换去时，币种名会在这一段余量里左右挪几格，价格和涨跌幅不动。这是有意的：
+`%` 后面留白比币种名挪一下显眼得多。
 
 ## 关于菜单栏的文字颜色
 
@@ -153,6 +164,9 @@ template 时连颜色都交给系统），涨跌幅是这张图片后面的**标
 
 涨跌幅作为标题接在图片后面，靠 `imagePosition = .imageLeading` 加 `alignment = .left` 才贴住
 价格——右对齐会把它顶到图标项的最右边，中间空出一大块。
+
+图片和标题之间有一段固定的空隙（实测 22 pt），是 `NSStatusBarButton` 自己留的，改不了；
+所以两部分之间不再另加空格，否则空隙会随字号变大。
 
 ## 关于面板的间距
 
@@ -286,6 +300,17 @@ Binance 内部的两个域名互为备份（同一份报价），这是唯一的
 
 字段读不懂时只退回该字段的默认值，不会丢掉整份配置。
 旧版本只有一个 `primary` 字段，读到时自动变成 `menuBarCoins: ["BTC"]`，之后不再写回。
+
+## 发布
+
+`.github/workflows/release.yml` 在 GitHub 自己的 Mac 上编译，所以下载不需要工具链。
+
+- 推 tag：`git tag v0.2.0 && git push origin v0.2.0` → 建一个正式 Release，附件是
+  `PriceBar-<版本>.zip` 与固定名的 `PriceBar.zip`
+- 推 `main` → 重写 `nightly` 预发布，每次构建替换附件
+- `build.sh` 读 `VERSION` 与 `BUILD_NUMBER` 环境变量写进 `Info.plist`，本地默认 `0.1.0` / `1`
+
+`PriceBar.zip` 这个固定名是给产品页的「下载 .app」用的——链接不能跟着版本号变。
 
 ## 已知缺口
 

@@ -19,6 +19,12 @@ BUILD_DIR="build"
 APP="$BUILD_DIR/$APP_NAME.app"
 CONFIG="${1:-release}"
 
+# The version written into the bundle. A release build passes its tag in, so
+# that the About box and the release agree; a build from a working copy gets
+# the same default every time.
+VERSION="${VERSION:-0.1.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+
 echo "==> Building ($CONFIG)"
 swift build -c "$CONFIG"
 
@@ -45,9 +51,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <!-- Lives in the menu bar: no Dock icon, no app switcher entry. -->

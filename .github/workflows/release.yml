@@ -1,0 +1,69 @@
+name: Release
+
+# Builds the .app on GitHub's own Mac, so that a download needs no toolchain.
+#
+# A tag makes a release: `git tag v0.2.0 && git push origin v0.2.0`. Every push
+# to main refreshes a "nightly" prerelease, so the newest build is always one
+# click away without cutting a version.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: swift test
+
+      - name: Build the app
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-${GITHUB_SHA:0:7}"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          VERSION="$VERSION" BUILD_NUMBER="$GITHUB_RUN_NUMBER" ./build.sh
+
+      - name: Check the bundle
+        run: |
+          codesign --verify --deep --strict --verbose=2 build/PriceBar.app
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            build/PriceBar.app/Contents/Info.plist
+
+      - name: Package
+        run: |
+          ditto -c -k --keepParent build/PriceBar.app "PriceBar-$VERSION.zip"
+          # A copy under a name that never changes, so that the "latest"
+          # download link on the product page keeps working across versions.
+          cp "PriceBar-$VERSION.zip" PriceBar.zip
+          ls -lh PriceBar-*.zip PriceBar.zip
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            gh release create "$GITHUB_REF_NAME" "PriceBar-$VERSION.zip" PriceBar.zip \
+              --title "PriceBar $VERSION" \
+              --generate-notes
+          else
+            # One rolling prerelease, rewritten by each push to main.
+            if ! gh release view nightly >/dev/null 2>&1; then
+              gh release create nightly \
+                --prerelease \
+                --target main \
+                --title "PriceBar 每日构建" \
+                --notes "每次推送 main 都会重写这个版本。未做公证：首次打开请右键点「打开」。"
+            fi
+            gh release upload nightly "PriceBar-$VERSION.zip" --clobber
+          fi
