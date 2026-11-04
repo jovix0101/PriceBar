@@ -14,9 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor private var statusItem: StatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        installMenuBar()
-        Notifier.requestAuthorization()
-        Task { @MainActor in
+        // The delegate calls this on the main thread, but the protocol says
+        // nothing about actors: say so, rather than hopping through a task and
+        // drawing the item a turn later than the menu bar is ready for.
+        MainActor.assumeIsolated {
+            installMenuBar()
+            Notifier.requestAuthorization()
             statusItem = StatusItem(store: store)
             store.start()
         }
@@ -25,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// A menu bar app keeps the commands a Mac app is expected to have —
     /// Settings on ⌘, and Quit on ⌘Q — in a menu bar of its own, which shows
     /// while one of its windows has the keyboard.
-    private func installMenuBar() {
+    @MainActor private func installMenuBar() {
         let mainMenu = NSMenu()
 
         let appItem = NSMenuItem()
