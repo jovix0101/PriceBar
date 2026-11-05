@@ -89,10 +89,12 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     /// beside it as a title.
     private func show(_ label: MenuBarPrice.Label) {
         item.button?.image = MenuBarPrice.image(label, width: store.menuBarWidth, tint: tint)
-        item.button?.attributedTitle = MenuBarPrice.changeTitle(
-            label,
-            colors: store.changeColors,
-            width: store.menuBarChangeWidth
+        item.button?.attributedTitle = MenuBarPrice.attach(
+            MenuBarPrice.changeImage(
+                label,
+                colors: store.changeColors,
+                width: store.menuBarChangeWidth
+            )
         )
     }
 
@@ -131,26 +133,18 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         }
         let eased = 1 - pow(1 - elapsed, 3)
 
-        // The change cannot ride the scroll — it is a title, and a title sits
-        // on one line — so it fades instead: out while the old price leaves,
-        // in while the new one arrives. Held blank for the length of the roll,
-        // as it used to be, it read as the change being late.
-        let half = 0.5
-        item.button?.attributedTitle = if eased < half {
-            MenuBarPrice.changeTitle(
-                old,
+        // The change rides the same scroll as the price, on the same progress,
+        // so the whole label turns as one thing. It is an image inside the
+        // title for exactly this: text in a title sits still.
+        item.button?.attributedTitle = MenuBarPrice.attach(
+            MenuBarPrice.scrollingChange(
+                from: old,
+                to: new,
                 colors: store.changeColors,
                 width: store.menuBarChangeWidth,
-                opacity: 1 - eased / half
+                progress: CGFloat(eased)
             )
-        } else {
-            MenuBarPrice.changeTitle(
-                new,
-                colors: store.changeColors,
-                width: store.menuBarChangeWidth,
-                opacity: (eased - half) / half
-            )
-        }
+        )
         item.button?.image = MenuBarPrice.scrolling(
             from: old,
             to: new,

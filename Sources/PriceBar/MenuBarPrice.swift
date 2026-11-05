@@ -102,87 +102,147 @@ enum MenuBarPrice {
         return text
     }
 
-    /// The change as the item's title: the menu bar sets this text itself, in
-    /// the colour given here, so green and red survive any choice above.
+    /// The change drawn, right-aligned in a block of its own.
     ///
-    /// `width` is the block the change sits in — the widest change of the
-    /// coins the menu bar shows. The text is pushed to its right, so the
-    /// "%" ends in the same place whether this coin's change is long or
-    /// short, and the gap that opens is the one before it.
+    /// It is an image rather than text so that it can ride the scroll: a title
+    /// sits on one line and text in it cannot move, but an attachment is an
+    /// image *inside* that line, and an image can move all it likes. Drawn
+    /// here rather than left to the menu bar for the same reason the change
+    /// was never coloured with the price: a template image takes one colour,
+    /// and this needs its own green or red whatever the price is doing.
     ///
-    /// `opacity` is how the change joins a scroll: it cannot ride one — a
-    /// title sits on a single line — so it fades out with the old coin and in
-    /// with the new one instead.
-    static func changeTitle(
-        _ label: Label,
+    /// Right-aligned in a block as wide as the widest change, so that the
+    /// per cent sign ends in the same place whether this coin moved 2% or
+    /// 0%, and the space that opens is the one before it.
+    static func changeImage(_ label: Label, colors: ChangeColors, width: CGFloat) -> NSImage {
+        let text = changeText(label, colors: colors)
+        let canvas = changeCanvas(width: width, for: text)
+        let image = NSImage(size: canvas, flipped: false) { _ in
+            text.draw(at: NSPoint(x: inset(text, in: canvas), y: rest()))
+            return true
+        }
+        return image
+    }
+
+    /// One frame of a rolling change: the old one leaves through the top, the
+    /// new one comes up from below, both cut off by the block.
+    ///
+    /// The same motion as the price beside it, with the same 0-to-1 progress,
+    /// so the label turns as one thing instead of half of it turning while the
+    /// other half blinks.
+    static func scrollingChange(
+        from old: Label,
+        to new: Label,
         colors: ChangeColors,
-        width: CGFloat = 0,
-        opacity: CGFloat = 1
-    ) -> NSAttributedString {
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        let shown = label.change.isEmpty ? Self.changeSample : label.change
-        // No space before the change: the item leaves a fixed gap between the
-        // image and the title, and a space on top of it would grow that gap
-        // with the font rather than keep it the same for every coin.
-        let text = NSMutableAttributedString(
-            string: shown,
-            attributes: [
-                .font: font,
-                .foregroundColor: changeColour(label.changeValue, colors: colors)
-                    .withAlphaComponent(opacity),
-            ]
-        )
-        return padded(text, to: width, font: font)
+        width: CGFloat,
+        progress: CGFloat
+    ) -> NSImage {
+        let out = changeText(old, colors: colors)
+        let into = changeText(new, colors: colors)
+        let canvas = changeCanvas(width: width, for: out.size().width > into.size().width ? out : into)
+        let lift = canvas.height
+
+        let image = NSImage(size: canvas, flipped: false) { _ in
+            let travel = progress * lift
+            out.draw(at: NSPoint(x: inset(out, in: canvas), y: rest() + travel))
+            into.draw(at: NSPoint(x: inset(into, in: canvas), y: rest() + travel - lift))
+            return true
+        }
+        return image
     }
 
-    /// The room the change takes as the item's title.
+    /// The change carried into the title as an attachment.
     ///
-    /// Measured against a sample wide enough for any change a coin can print —
-    /// `▲00.00%` — rather than against the value on screen. A block that
-    /// followed the value would shrink the item the moment a coin crossed
-    /// flat, and every icon beside it would shift; the block is there to hold
-    /// still, and the change inside it is what moves.
+    /// `bounds` carries the image up to where the price sits.
+    ///
+    /// The button centres the price image in its height, but it sets the title
+    /// on the line's baseline, and the two rules do not meet: with the image
+    /// dropped in at zero, the change reads a few points low. `changeLift` is
+    /// that difference, measured by rendering a real status item with a real
+    /// label and comparing where the digits of each land — the same figure at
+    /// every button height from 22 to 26 pt, so a constant is enough.
+    static func attach(_ image: NSImage) -> NSAttributedString {
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = CGRect(
+            x: 0,
+            y: changeLift,
+            width: image.size.width,
+            height: image.size.height
+        )
+        return NSAttributedString(attachment: attachment)
+    }
+
+    /// How far the change image sits above the title's baseline.
+    private static let changeLift: CGFloat = 8
+
+    /// The change as plain text, for the preview in Settings.
+    static func changeTitle(_ label: Label, colors: ChangeColors) -> NSAttributedString {
+        changeText(label, colors: colors)
+    }
+
+    /// The room the change takes: the widest change any coin can print.
+    ///
+    /// Measured against a sample — `▲00.00%` — rather than against the value on
+    /// screen. A block that followed the value would shrink the item the moment
+    /// a coin crossed flat, and every icon beside it would shift.
     static func changeWidth() -> CGFloat {
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        return ceil(changeSample.size(withAttributes: [.font: font]).width)
+        ceil(changeSample.size(withAttributes: [.font: changeFont]).width)
     }
 
-    /// A full stop, drawn clear: no ink, but a real width, and not whitespace.
-    ///
-    /// The menu bar measures the leading whitespace of a title but does not
-    /// draw it, so a title padded with spaces comes out measured wide and
-    /// drawn from the left of its block. A glyph is measured and drawn alike,
-    /// and a clear one is invisible either way.
-    private static let blank = "."
+    private static var changeFont: NSFont {
+        NSFont.systemFont(ofSize: 10, weight: .medium)
+    }
 
-    /// Clear full stops in front of `text`, so that the text ends `target`
-    /// points from where the block starts.
-    private static func padded(
-        _ text: NSMutableAttributedString,
-        to target: CGFloat,
-        font: NSFont
-    ) -> NSAttributedString {
-        let gap = target - text.size().width
-        guard gap > 0.01 else { return text }
+    private static var digitsFont: NSFont {
+        NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+    }
 
-        let unit = (blank as NSString).size(withAttributes: [.font: font]).width
-        let count = Int(gap / unit)
-        let out = NSMutableAttributedString(
-            string: String(repeating: blank, count: count),
-            attributes: [.font: font, .foregroundColor: NSColor.clear]
-        )
-        // Whole stops land short of the target by less than one of them; a kern
-        // on the last pays the difference, so the text starts on the point.
-        out.append(NSAttributedString(
-            string: blank,
+    /// The change in its own colour: green up, red down, whatever the choice
+    /// above says about the coin and the price.
+    private static func changeText(_ label: Label, colors: ChangeColors) -> NSAttributedString {
+        NSAttributedString(
+            string: label.change.isEmpty ? changeSample : label.change,
             attributes: [
-                .font: font,
-                .foregroundColor: NSColor.clear,
-                .kern: gap - CGFloat(count + 1) * unit,
+                .font: changeFont,
+                .foregroundColor: changeColour(label.changeValue, colors: colors),
             ]
-        ))
-        out.append(text)
-        return out
+        )
+    }
+
+    /// A block as wide as `width` and as tall as the price beside it.
+    ///
+    /// The same height, and the text drawn at the same y, so that the two
+    /// images are read the same way by the button: it centres each of them,
+    /// and centring two boxes of one size puts their text on one baseline.
+    private static func changeCanvas(width: CGFloat, for text: NSAttributedString) -> NSSize {
+        NSSize(
+            width: max(width, ceil(text.size().width) + 1),
+            height: ceil(attributed(placeholder).size().height)
+        )
+    }
+
+    /// A label of the widest kind, only ever asked for its height.
+    private static let placeholder = Label(
+        coin: "BTC", symbol: "$", amount: "00,000", change: "▲00.00%", changeValue: 1
+    )
+
+    /// Where the block's text starts, so that its right edge is the block's own.
+    private static func inset(_ text: NSAttributedString, in canvas: NSSize) -> CGFloat {
+        max(0.5, canvas.width - ceil(text.size().width) - 0.5)
+    }
+
+    /// How far above the block's bottom the change sits, so that its baseline
+    /// lands on the price's.
+    ///
+    /// `draw(at:)` measures from the bottom of the line, descender included,
+    /// and the price sets 13 pt type while the change sets 10 pt. Both boxes
+    /// are the same height, but their descenders are not: dropped in at zero,
+    /// the change would ride a fraction of a point low.
+    private static func rest() -> CGFloat {
+        let price = -digitsFont.descender
+        let change = -changeFont.descender
+        return max(0, price - change)
     }
 
     /// How wide the drawn part of this coin's label would be, on its own.
