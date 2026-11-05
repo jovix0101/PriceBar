@@ -9,7 +9,7 @@ import PriceBarCore
 /// answers once it is. This one opens whenever it is asked to, and brings the
 /// app forward with it.
 @MainActor
-final class SettingsWindow {
+final class SettingsWindow: NSObject, NSWindowDelegate {
     static let shared = SettingsWindow()
 
     private var window: NSWindow?
@@ -23,6 +23,7 @@ final class SettingsWindow {
             window.styleMask = [.titled, .closable]
             window.toolbarStyle = .preference
             window.isReleasedWhenClosed = false
+            window.delegate = self
             self.tabs = tabs
             self.window = window
             tabs.fitWindow(animate: false)
@@ -33,6 +34,14 @@ final class SettingsWindow {
         }
         NSApplication.shared.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// A closed window keeps its field focused, and the app hands that field
+    /// the keyboard the next time it is brought forward: what was typed into
+    /// the panel went to the proxy address of a window no longer on screen.
+    /// The field lets go as the window closes.
+    func windowWillClose(_ notification: Notification) {
+        window?.makeFirstResponder(nil)
     }
 }
 

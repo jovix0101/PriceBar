@@ -145,7 +145,7 @@ enum MenuBarPrice {
     /// The gap between two coins: wider than the gap inside a block, so that
     /// the blocks read as separate prices rather than as one long line.
     private static var gap: NSAttributedString {
-        NSAttributedString(string: " ", attributes: [.font: smallFont, .kern: 11])
+        NSAttributedString(string: " ", attributes: [.font: smallFont, .kern: 5])
     }
 
     /// Grows `text` to `width` with a kern on its last glyph, if it is short.

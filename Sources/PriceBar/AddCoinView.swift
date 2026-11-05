@@ -44,7 +44,7 @@ struct AddCoinView: View {
         }
         .padding(14)
         .frame(width: 250)
-        .onAppear { focused = true }
+        .takesKeyboard { focused = true }
     }
 
     private var canSubmit: Bool {
