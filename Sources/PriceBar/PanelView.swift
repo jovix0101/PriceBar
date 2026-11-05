@@ -8,6 +8,25 @@ struct PanelView: View {
     let store: Store
 
     @State private var addingCoin = false
+    /// Whether scroll bars sit beside the content or float over it. With a
+    /// mouse plugged in, or "always show scroll bars" chosen, they take a
+    /// strip of their own, and it changes while the app is running.
+    @State private var scrollerStyle = NSScroller.preferredScrollerStyle
+
+    /// The width of a row, whether the list scrolls or not.
+    private static let rowWidth: CGFloat = 280
+
+    private var scrolls: Bool {
+        store.quotes.count > store.panelRows
+    }
+
+    /// The strip a scroll bar takes beside the rows, or nothing when it floats
+    /// over them. The panel grows by it rather than the rows giving it up:
+    /// squeezed by those 15 points, a six-figure price breaks onto two lines.
+    private var scrollerWidth: CGFloat {
+        guard scrolls, scrollerStyle == .legacy else { return 0 }
+        return NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,8 +34,13 @@ struct PanelView: View {
             Divider()
             footer
         }
-        .frame(width: 280)
+        .frame(width: Self.rowWidth + scrollerWidth)
         .padding(.vertical, 6)
+        .onReceive(NotificationCenter.default.publisher(
+            for: NSScroller.preferredScrollerStyleDidChangeNotification
+        )) { _ in
+            scrollerStyle = NSScroller.preferredScrollerStyle
+        }
     }
 
     /// The prices, in a list that stops growing at the row limit and scrolls
@@ -24,9 +48,10 @@ struct PanelView: View {
     /// later be taller than the screen, and its footer would be out of reach.
     private var priceList: some View {
         Group {
-            if store.quotes.count > store.panelRows {
+            if scrolls {
                 ScrollView(.vertical) {
                     rows
+                        .frame(width: Self.rowWidth)
                 }
                 .frame(height: Self.height(for: store.panelRows))
             } else {
@@ -109,7 +134,7 @@ struct PanelView: View {
                     }
                 }
                 Divider()
-                Button("菜单栏设置…") { SettingsWindow.shared.show(store: store) }
+                Button("菜单栏设置…") { SettingsWindow.shared.show(store: store, page: .menuBar) }
             } label: {
                 Text(store.menuBarSummary)
                     .font(.caption)
@@ -188,6 +213,11 @@ private struct PriceRow: View {
                     .font(.system(.body, weight: .medium))
                     .monospacedDigit()
             }
+            // A price is one reading: broken over two lines it is two wrong
+            // ones, so it keeps its width and the gap before it gives way.
+            .lineLimit(1)
+            .fixedSize()
+            .layoutPriority(1)
 
             // An arrow as well as a color: a red number alone tells a reader
             // who cannot tell red from green nothing.
@@ -195,6 +225,8 @@ private struct PriceRow: View {
                 .font(.system(.caption2, weight: contrast == .increased ? .bold : .regular))
                 .monospacedDigit()
                 .foregroundStyle(changeColor)
+                .lineLimit(1)
+                .fixedSize()
                 .frame(width: 54, alignment: .trailing)
 
             // The space is always kept, so a row does not change width as
@@ -228,12 +260,15 @@ private struct PriceRow: View {
         // The whole row is the link: the numbers are what a reader points at,
         // and asking them to find a small icon for it would be a worse trade
         // than giving up a click on the row. The bell keeps its own click —
-        // it is a button, and buttons answer before the row does.
-        .onTapGesture { store.openContract(for: quote.coin) }
-        .help("在 \(store.source.label) 打开 \(quote.coin) 的合约行情")
+        // it is a button, and buttons answer before the row does. A reader
+        // who clicks rows by accident can turn this off in the settings.
+        .onTapGesture {
+            if store.openContractOnClick { store.openContract(for: quote.coin) }
+        }
+        .help(store.openContractOnClick ? "在 \(store.source.label) 打开 \(quote.coin) 的合约行情" : "")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
-        .accessibilityHint("打开 \(store.source.label) 的合约行情页")
+        .accessibilityHint(store.openContractOnClick ? "打开 \(store.source.label) 的合约行情页" : "")
         .contextMenu {
             Button("\(quote.coin) 的提醒…") { showingRules = true }
             Button("在 \(store.source.label) 打开合约行情") {

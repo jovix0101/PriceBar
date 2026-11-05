@@ -83,6 +83,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// with the coins otherwise, and a panel taller than the screen is a panel
     /// whose bottom cannot be reached.
     public var panelRows: Int = 8
+    /// The row limits a panel can be given: fewer than three is hardly a
+    /// list, more than twenty is taller than a laptop screen.
+    public static let panelRowRange = 3...20
+    /// Whether a click on a coin in the panel opens its contract page on the
+    /// exchange. The right-click menu offers the same page either way.
+    public var openContractOnClick: Bool = true
     /// Which color means a rise.
     public var changeColors: ChangeColors = .greenUp
     /// What colour the menu bar writes the price in.
@@ -98,6 +104,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case coins, menuBarCoins, currency, interval, panelRows, changeColors
+        case openContractOnClick
         case menuBarTint
         case source, proxyMode, proxyAddress, rules
         /// Written by versions that had one coin on the menu bar.
@@ -111,6 +118,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try container.encode(currency, forKey: .currency)
         try container.encode(interval, forKey: .interval)
         try container.encode(panelRows, forKey: .panelRows)
+        try container.encode(openContractOnClick, forKey: .openContractOnClick)
         try container.encode(changeColors, forKey: .changeColors)
         try container.encode(menuBarTint, forKey: .menuBarTint)
         try container.encode(source, forKey: .source)
@@ -132,7 +140,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         // A row limit of zero or less would leave the panel with no prices on
         // it at all, so anything unusable falls back to the default.
         let rows = (try? container.decode(Int.self, forKey: .panelRows)) ?? defaults.panelRows
-        panelRows = (3...20).contains(rows) ? rows : defaults.panelRows
+        panelRows = Self.panelRowRange.contains(rows) ? rows : defaults.panelRows
+        openContractOnClick = (try? container.decode(Bool.self, forKey: .openContractOnClick))
+            ?? defaults.openContractOnClick
         changeColors = (try? container.decode(ChangeColors.self, forKey: .changeColors)) ?? defaults.changeColors
         menuBarTint = (try? container.decode(MenuBarTint.self, forKey: .menuBarTint)) ?? defaults.menuBarTint
         source = (try? container.decode(MarketSource.self, forKey: .source)) ?? defaults.source

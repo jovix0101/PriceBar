@@ -194,6 +194,18 @@ struct SettingsTests {
         #expect(back.panelRows == 12)
     }
 
+    @Test("点击打开合约页默认开，关掉后能存住，旧文件当作开")
+    func openContractOnClick() throws {
+        #expect(AppSettings().openContractOnClick)
+        var off = AppSettings()
+        off.openContractOnClick = false
+        let back = try JSONDecoder().decode(
+            AppSettings.self, from: JSONEncoder().encode(off))
+        #expect(!back.openContractOnClick)
+        let old = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"coins":["BTC"]}"#.utf8))
+        #expect(old.openContractOnClick)
+    }
+
     @Test("JSON 往返")
     func roundTripThroughJSON() throws {
         var settings = AppSettings()

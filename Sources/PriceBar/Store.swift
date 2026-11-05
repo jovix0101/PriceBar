@@ -68,6 +68,12 @@ final class Store {
         set { apply { $0.panelRows = newValue } }
     }
 
+    /// Whether a click on a coin in the panel opens its contract page.
+    var openContractOnClick: Bool {
+        get { settings.openContractOnClick }
+        set { apply { $0.openContractOnClick = newValue } }
+    }
+
     var changeColors: ChangeColors {
         get { settings.changeColors }
         set { apply { $0.changeColors = newValue } }
