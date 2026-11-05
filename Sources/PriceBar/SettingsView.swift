@@ -108,6 +108,9 @@ struct SettingsView: View {
                     noteText("勾选的币种显示在菜单栏。")
                 }
                 noteText("拖动左边的把手可以调顺序，这个顺序也是面板里的顺序。")
+                if store.coins.count > visibleCoinRows {
+                    noteText("币种多了列表可以滚动，共 \(store.coins.count) 个。")
+                }
                 switch store.menuBarTint {
                 case .automatic:
                     noteText("自动：跟着菜单栏自己的颜色走，换壁纸、切深浅色都能看清。")
@@ -234,13 +237,37 @@ struct SettingsView: View {
     /// place in the menu bar ticked. One list for both places: a coin dragged
     /// up here goes up there too.
     private var coinList: some View {
+        Group {
+            if store.coins.count > visibleCoinRows {
+                // Nothing else in the window grows with the number of coins,
+                // so the list is the one thing allowed to scroll: a dozen
+                // coins would otherwise push the window past the bottom of
+                // the screen, and the settings below would be unreachable.
+                ScrollView {
+                    coinRows
+                }
+                .frame(height: coinRowHeight * CGFloat(visibleCoinRows))
+            } else {
+                coinRows
+            }
+        }
+        .frame(width: 202)
+    }
+
+    private var coinRows: some View {
         VStack(spacing: 1) {
             ForEach(store.coins, id: \.self) { coin in
                 coinRow(coin)
             }
         }
-        .frame(width: 202)
     }
+
+    /// How many coins the settings window shows before the list starts
+    /// scrolling, and how tall one row is. Six is where the window still
+    /// fits on a laptop screen with every other group in view.
+    private let visibleCoinRows = 6
+    /// A row: 12 pt of text, 3 pt above and below, and the hairline between.
+    private let coinRowHeight: CGFloat = 21
 
     private func coinRow(_ coin: String) -> some View {
         let on = store.isOnMenuBar(coin)
