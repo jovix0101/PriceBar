@@ -249,6 +249,28 @@ struct NetworkTests {
         #expect(abs(quote.change) < 30)
     }
 
+    @Test("四家都能报出黄金和苹果的永续合约", arguments: MarketSource.allCases)
+    func everySourceQuotesContracts(source: MarketSource) async throws {
+        let proxy = source.normallyNeedsProxy(for: .perpetual)
+            ? ProxySettings(mode: .custom, address: "http://127.0.0.1:1080")
+            : ProxySettings(mode: .direct)
+        let session = proxy.session()
+        let reading = await PriceAPI.read(["BTC", "XAU.P", "AAPL.P", "NOPEZZ.P"], source: source, session: session)
+        #expect(reading.quotes.map(\.coin) == ["BTC", "XAU.P", "AAPL.P"])
+        let gold = try #require(reading.quotes.first { $0.coin == "XAU.P" })
+        #expect(gold.price > 1000)
+        #expect(reading.missing["NOPEZZ.P"] == .notListed)
+        let line = try await PriceAPI.closes(coin: "XAU.P", source: source, session: session)
+        #expect(line.count > 12)
+    }
+
+    @Test("Binance 一次问多个币时，有一个不认识也不连累其他")
+    func binanceBatchSurvivesAnUnknownCode() async {
+        let reading = await PriceAPI.read(["BTC", "ETH", "NOPEZZ"])
+        #expect(reading.quotes.map(\.coin) == ["BTC", "ETH"])
+        #expect(reading.missing["NOPEZZ"] == .notListed)
+    }
+
     @Test("汇率是正数")
     func fetchesRate() async throws {
         let rate = try await FXAPI.usdToCNY()
@@ -364,18 +386,138 @@ struct CoinValidationTests {
         #expect(CoinValidation.normalize("   ") == "")
     }
 
-    @Test("空输入与重复添加不动网络")
+    @Test("空输入与现货、合约都加过时不动网络")
     func rejectsBeforeAskingTheExchange() {
-        #expect(CoinValidation.problem(coin: "", existing: ["BTC"]) == "请输入币种代号")
-        #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "ETH"]) == "已经添加过 BTC")
+        #expect(CoinValidation.problem(coin: "", existing: ["BTC"]) == "请输入代号")
+        #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "BTC.P"]) == "已经添加过 BTC")
+        // Spot alone is not everything: the contract may still be added.
+        #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "ETH"]) == nil)
         #expect(CoinValidation.problem(coin: "SOL", existing: ["BTC"]) == nil)
     }
 
-    @Test("交易所没有的交易对说清楚是哪个")
-    func explainsAMissingPair() {
-        #expect(CoinValidation.problem(coin: "NOTACOIN", knownToExchange: false)
-                == "交易所没有 NOTACOINUSDT 这个交易对")
-        #expect(CoinValidation.problem(coin: "SOL", knownToExchange: true) == nil)
+    private func reading(_ found: [String], missing: [String: PriceAPI.Absence] = [:]) -> PriceAPI.Reading {
+        PriceAPI.Reading(quotes: found.map { Quote(coin: $0, price: 1, change: 0) }, missing: missing)
+    }
+
+    @Test("现货和合约都有时让用户选，现货在前")
+    func offersBothMarkets() {
+        let decision = CoinValidation.decide(
+            code: "BTC", existing: [], reading: reading(["BTC", "BTC.P"]), source: .binance)
+        guard case let .choose(choices) = decision else {
+            Issue.record("应该让用户选：\(decision)"); return
+        }
+        #expect(choices.map(\.instrument.id) == ["BTC", "BTC.P"])
+        #expect(choices.allSatisfy { $0.state == .available })
+    }
+
+    @Test("只有合约的直接加，比如黄金和美股")
+    func addsAContractOnlyCode() {
+        let decision = CoinValidation.decide(
+            code: "XAU", existing: [],
+            reading: reading(["XAU.P"], missing: ["XAU": .notListed]), source: .gate)
+        #expect(decision == .add(Instrument(code: "XAU", market: .perpetual)))
+    }
+
+    @Test("现货加过了，合约仍可加，现货显示已添加")
+    func showsWhatIsAlreadyAdded() {
+        let decision = CoinValidation.decide(
+            code: "BTC", existing: ["BTC"], reading: reading(["BTC", "BTC.P"]), source: .okx)
+        guard case let .choose(choices) = decision else {
+            Issue.record("应该让用户选：\(decision)"); return
+        }
+        #expect(choices.map(\.state) == [.added, .available])
+    }
+
+    @Test("合约连不上时照样能加现货，但要说明")
+    func greysOutAnUnreachableMarket() {
+        let decision = CoinValidation.decide(
+            code: "BTC", existing: [],
+            reading: reading(["BTC"], missing: ["BTC.P": .unreachable("HTTP 451")]), source: .binance)
+        guard case let .choose(choices) = decision else {
+            Issue.record("应该让用户选：\(decision)"); return
+        }
+        #expect(choices.map(\.state) == [.available, .unreachable("HTTP 451")])
+    }
+
+    @Test("两边都没有，说清楚是哪家没有")
+    func explainsAMissingCode() {
+        let decision = CoinValidation.decide(
+            code: "NOPE", existing: [],
+            reading: reading([], missing: ["NOPE": .notListed, "NOPE.P": .notListed]), source: .bybit)
+        #expect(decision == .problem("Bybit 没有 NOPE 的现货或永续合约"))
+
+        let blocked = CoinValidation.decide(
+            code: "XAU", existing: [],
+            reading: reading([], missing: ["XAU": .notListed, "XAU.P": .unreachable("请求超时")]),
+            source: .binance)
+        #expect(blocked == .problem("连不上 Binance：请求超时"))
+    }
+}
+
+@Suite("现货与永续合约")
+struct InstrumentTests {
+    @Test("代号后面的 .P 是永续合约，没有就是现货")
+    func readsTheStoredForm() {
+        #expect(Instrument(id: "BTC") == Instrument(code: "BTC", market: .spot))
+        #expect(Instrument(id: "xau.p") == Instrument(code: "XAU", market: .perpetual))
+        #expect(Instrument(code: "aapl", market: .perpetual).id == "AAPL.P")
+        #expect(Instrument(id: "XAU.P").name == "XAU 合约")
+        #expect(Instrument(id: "BTC").name == "BTC")
+    }
+
+    @Test("旧设置里的币种都按现货读")
+    func oldSettingsAreSpot() throws {
+        let settings = try JSONDecoder().decode(
+            AppSettings.self, from: Data(#"{"coins":["BTC","ETH"]}"#.utf8))
+        #expect(settings.coins.map { Instrument(id: $0).market } == [.spot, .spot])
+    }
+
+    @Test("合约在每家的写法")
+    func perpetualSymbols() {
+        let xau = Instrument(code: "XAU", market: .perpetual)
+        #expect(MarketSource.binance.symbol(for: xau) == "XAUUSDT")
+        #expect(MarketSource.gate.symbol(for: xau) == "XAU_USDT")
+        #expect(MarketSource.okx.symbol(for: xau) == "XAU-USDT-SWAP")
+        #expect(MarketSource.bybit.symbol(for: xau) == "XAUUSDT")
+        #expect(MarketSource.okx.symbol(for: Instrument(code: "BTC", market: .spot)) == "BTC-USDT")
+    }
+
+    @Test("币安合约要挂代理，现货不用")
+    func binanceContractsWantAProxy() {
+        #expect(!MarketSource.binance.normallyNeedsProxy(for: .spot))
+        #expect(MarketSource.binance.normallyNeedsProxy(for: .perpetual))
+        #expect(!MarketSource.gate.normallyNeedsProxy(for: .perpetual))
+        #expect(MarketSource.okx.normallyNeedsProxy(for: .spot))
+    }
+
+    @Test("Gate 合约的报价字段叫 contract")
+    func readsAGateContractTicker() {
+        let json = """
+        [{"contract":"XAU_USDT","last":"4128.9","low_24h":"4037.31","high_24h":"4151.77",
+          "change_percentage":"1.95","funding_rate":"0.0001"}]
+        """
+        let quote = PriceAPI.quote(from: Data(json.utf8), source: .gate, coin: "XAU.P")
+        #expect(quote?.coin == "XAU.P")
+        #expect(quote?.price == 4128.9)
+        #expect(quote?.change == 1.95)
+    }
+
+    @Test("Gate 合约的 K 线是对象，收盘价在 c")
+    func readsGateContractCandles() throws {
+        let json = """
+        [{"o":"4116.9","v":136468286,"t":1793890800,"c":"4089.57","l":"4081.9","h":"4126.24"},
+         {"o":"4089.76","v":20689180,"t":1793894400,"c":"4090.77","l":"4089.52","h":"4097.73"}]
+        """
+        #expect(try PriceAPI.closes(from: Data(json.utf8), source: .gate, market: .perpetual)
+                == [4089.57, 4090.77])
+    }
+
+    @Test("Binance 合约与现货同名，报价归到 .P 下")
+    func readsABinanceContractTicker() throws {
+        let one = #"{"symbol":"XAUUSDT","lastPrice":"4091.80","priceChangePercent":"0.95"}"#
+        let quotes = try PriceAPI.binanceQuotes(
+            from: Data(one.utf8), instruments: [Instrument(code: "XAU", market: .perpetual)])
+        #expect(quotes.map(\.coin) == ["XAU.P"])
     }
 }
 

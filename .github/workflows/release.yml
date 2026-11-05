@@ -4,11 +4,13 @@ name: Release
 #
 # A tag makes a release: `git tag v0.2.0 && git push origin v0.2.0`. Every push
 # to main refreshes a "nightly" prerelease, so the newest build is always one
-# click away without cutting a version.
+# click away without cutting a version. A feature branch is tested and built
+# but released nowhere: its disk image is left on the run, to try before the
+# branch is merged.
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -52,7 +54,15 @@ jobs:
           cp "PriceBar-$VERSION.dmg" PriceBar.dmg
           ls -lh PriceBar-*.dmg PriceBar.dmg
 
+      - name: Keep the branch build
+        if: github.ref_type == 'branch' && github.ref_name != 'main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PriceBar-${{ env.VERSION }}
+          path: PriceBar.dmg
+
       - name: Release
+        if: github.ref_type == 'tag' || github.ref_name == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -13,11 +13,30 @@ struct PanelView: View {
     /// strip of their own, and it changes while the app is running.
     @State private var scrollerStyle = NSScroller.preferredScrollerStyle
 
-    /// The width of a row, whether the list scrolls or not.
-    private static let rowWidth: CGFloat = 280
+    /// The width of a row, whether the list scrolls or not. Wider by the
+    /// room a "合约" tag needs once there is a contract on the panel, so that
+    /// the tag does not come out of the price's side.
+    private var rowWidth: CGFloat {
+        280 + (store.hasContracts ? InstrumentName.wide - InstrumentName.narrow : 0)
+    }
+
+    /// What the panel lists, in the panel's order: a price for each
+    /// instrument that has one, and a row saying why for each that does not.
+    private var entries: [Entry] {
+        let quoted = Dictionary(store.quotes.map { ($0.coin, $0) }, uniquingKeysWith: { first, _ in first })
+        var out: [Entry] = store.coins.compactMap { coin in
+            if let quote = quoted[coin] { return .price(quote) }
+            if let why = store.missing[coin] { return .missing(coin, why) }
+            return nil
+        }
+        // A preview may hand the store prices for codes it never listed.
+        let listed = Set(store.coins)
+        out += store.quotes.filter { !listed.contains($0.coin) }.map(Entry.price)
+        return out
+    }
 
     private var scrolls: Bool {
-        store.quotes.count > store.panelRows
+        entries.count > store.panelRows
     }
 
     /// The strip a scroll bar takes beside the rows, or nothing when it floats
@@ -34,7 +53,7 @@ struct PanelView: View {
             Divider()
             footer
         }
-        .frame(width: Self.rowWidth + scrollerWidth)
+        .frame(width: rowWidth + scrollerWidth)
         .padding(.vertical, 6)
         .onReceive(NotificationCenter.default.publisher(
             for: NSScroller.preferredScrollerStyleDidChangeNotification
@@ -51,7 +70,7 @@ struct PanelView: View {
             if scrolls {
                 ScrollView(.vertical) {
                     rows
-                        .frame(width: Self.rowWidth)
+                        .frame(width: rowWidth)
                 }
                 .frame(height: Self.height(for: store.panelRows))
             } else {
@@ -72,10 +91,15 @@ struct PanelView: View {
 
     private var rows: some View {
         VStack(spacing: 2) {
-            ForEach(store.quotes) { quote in
-                PriceRow(quote: quote, store: store)
+            ForEach(entries) { entry in
+                switch entry {
+                case let .price(quote):
+                    PriceRow(quote: quote, store: store)
+                case let .missing(coin, why):
+                    MissingRow(coin: coin, why: why, store: store)
+                }
             }
-            if store.quotes.isEmpty {
+            if entries.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(store.error ?? "正在获取价格…")
                         .font(.caption)
@@ -111,8 +135,8 @@ struct PanelView: View {
                 Image(systemName: "plus")
             }
             .buttonStyle(.plain)
-            .help("添加币种")
-            .accessibilityLabel("添加币种")
+            .help("添加币种、贵金属或美股")
+            .accessibilityLabel("添加币种、贵金属或美股")
             .popover(isPresented: $addingCoin, arrowEdge: .bottom) {
                 AddCoinView(store: store)
             }
@@ -182,11 +206,12 @@ private struct PriceRow: View {
         !store.rules(for: quote.coin).isEmpty
     }
 
+    private var code: String { Instrument(id: quote.coin).code }
+    private var name: String { Instrument(id: quote.coin).name }
+
     var body: some View {
         HStack(spacing: 8) {
-            Text(quote.coin)
-                .font(.system(.caption, weight: .semibold))
-                .frame(width: 42, alignment: .leading)
+            InstrumentName(coin: quote.coin, wide: store.hasContracts)
 
             // A placeholder while the line is on its way, so that the prices
             // beside it do not shift when it arrives.
@@ -242,8 +267,8 @@ private struct PriceRow: View {
             .buttonStyle(.plain)
             .opacity(hovering || hasRules ? 1 : 0)
             .frame(width: 14)
-            .help("\(quote.coin) 的提醒")
-            .accessibilityLabel("\(quote.coin) 的提醒")
+            .help("\(name) 的提醒")
+            .accessibilityLabel("\(name) 的提醒")
             .accessibilityHidden(!hovering && !hasRules)
             .popover(isPresented: $showingRules, arrowEdge: .bottom) {
                 RulesView(coin: quote.coin, store: store)
@@ -265,12 +290,12 @@ private struct PriceRow: View {
         .onTapGesture {
             if store.openContractOnClick { store.openContract(for: quote.coin) }
         }
-        .help(store.openContractOnClick ? "在 \(store.source.label) 打开 \(quote.coin) 的合约行情" : "")
+        .help(store.openContractOnClick ? "在 \(store.source.label) 打开 \(code) 的合约行情" : "")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
         .accessibilityHint(store.openContractOnClick ? "打开 \(store.source.label) 的合约行情页" : "")
         .contextMenu {
-            Button("\(quote.coin) 的提醒…") { showingRules = true }
+            Button("\(name) 的提醒…") { showingRules = true }
             Button("在 \(store.source.label) 打开合约行情") {
                 store.openContract(for: quote.coin)
             }
@@ -278,7 +303,7 @@ private struct PriceRow: View {
                 store.toggleMenuBar(quote.coin)
             }
             Divider()
-            Button("移除 \(quote.coin)", role: .destructive) {
+            Button("移除 \(name)", role: .destructive) {
                 store.removeCoin(quote.coin)
             }
         }
@@ -302,7 +327,101 @@ private struct PriceRow: View {
 
     private var accessibilityText: String {
         let direction = quote.change > 0 ? "上涨" : (quote.change < 0 ? "下跌" : "持平")
-        return "\(quote.coin) \(store.money(quote.price))，24 小时\(direction) \(formatSigned(quote.change))"
+        return "\(name) \(store.money(quote.price))，24 小时\(direction) \(formatSigned(quote.change))"
+    }
+}
+
+/// A row of the panel: a price, or a code with no price and the reason.
+private enum Entry: Identifiable {
+    case price(Quote)
+    case missing(String, PriceAPI.Absence)
+
+    var id: String {
+        switch self {
+        case let .price(quote): quote.coin
+        case let .missing(coin, _): coin
+        }
+    }
+}
+
+/// The code at the head of a row, and for a contract a small "合约" after
+/// it: BTC spot and BTC perpetual can sit on one panel, a few dollars apart,
+/// and the tag is how they are told apart.
+private struct InstrumentName: View {
+    let coin: String
+    /// Whether to keep the room a tag needs, on every row alike, so that
+    /// the sparklines below each other still line up.
+    let wide: Bool
+
+    static let narrow: CGFloat = 42
+    static let wide: CGFloat = 62
+
+    var body: some View {
+        let instrument = Instrument(id: coin)
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(instrument.code)
+                .font(.system(.caption, weight: .semibold))
+            if instrument.market == .perpetual {
+                Text(instrument.market.label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .lineLimit(1)
+        .frame(width: wide ? Self.wide : Self.narrow, alignment: .leading)
+    }
+}
+
+/// An instrument the last read found no price for. It keeps its place, and
+/// says why: a contract that vanished from the panel whenever its market was
+/// out of reach would look like a contract that had been removed.
+private struct MissingRow: View {
+    let coin: String
+    let why: PriceAPI.Absence
+    let store: Store
+
+    var body: some View {
+        HStack(spacing: 8) {
+            InstrumentName(coin: coin, wide: store.hasContracts)
+            Spacer(minLength: 4)
+            Text(reason)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            // The price's own font, so the row is as tall as a row with one.
+            Text("—")
+                .font(.system(.body, weight: .medium))
+                .foregroundStyle(.tertiary)
+            Color.clear.frame(width: 14, height: 1)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .help(detail)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(Instrument(id: coin).name)，\(detail)")
+        .contextMenu {
+            Button("移除 \(Instrument(id: coin).name)", role: .destructive) {
+                store.removeCoin(coin)
+            }
+        }
+    }
+
+    private var reason: String {
+        switch why {
+        case .notListed: "\(store.source.label) 没有"
+        case .unreachable: "连不上"
+        }
+    }
+
+    private var detail: String {
+        switch why {
+        case .notListed:
+            return "\(store.source.label) 没有 \(Instrument(id: coin).name)，换个数据源试试"
+        case let .unreachable(message):
+            let market = Instrument(id: coin).market
+            return "\(message)。\(store.hint(for: store.source, market: market))"
+        }
     }
 }
 

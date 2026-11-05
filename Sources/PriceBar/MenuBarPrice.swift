@@ -186,8 +186,10 @@ enum MenuBarPrice {
 
     @MainActor static func labels(for store: Store) -> [MenuBarPrice.Label] {
         store.menuBarQuotes.map { quote in
+            // The code alone, contract or not: the menu bar has no room for
+            // a tag, and the panel beside it says which is which.
             Label(
-                coin: quote.coin,
+                coin: Instrument(id: quote.coin).code,
                 symbol: store.currency.symbol,
                 amount: store.amount(quote.price),
                 change: formatArrowed(quote.change),

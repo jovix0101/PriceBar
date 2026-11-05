@@ -216,7 +216,7 @@ public struct AlertEngine {
         /// The threshold is in US dollars whatever the panel shows, so the
         /// title names dollars: a rule set at 80000 fires at $80,000.
         public var title: String {
-            let name = quote.coin
+            let name = Instrument(id: quote.coin).name
             switch rule.metric {
             case .price:
                 return rule.above
