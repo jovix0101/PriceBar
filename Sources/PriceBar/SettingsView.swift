@@ -518,6 +518,7 @@ private struct SourceSettings: View {
 private let controlWidth: CGFloat = 202
 
 /// A line of note, in the secondary colour unless something is wrong.
+@MainActor
 private func noteText(_ text: String, color: Color = .secondary) -> some View {
     Text(text)
         .font(.caption)
@@ -527,6 +528,7 @@ private func noteText(_ text: String, color: Color = .secondary) -> some View {
 }
 
 /// A titled group: its rows in a card, its note just below.
+@MainActor
 private func settingsGroup(
     _ title: String,
     @ViewBuilder rows: () -> some View,
@@ -551,6 +553,7 @@ private func settingsGroup(
 
 /// A labelled row: the name on the left, the control against the right
 /// edge, both on the same line.
+@MainActor
 private func settingsRow(
     _ label: String,
     alignment: VerticalAlignment = .center,
