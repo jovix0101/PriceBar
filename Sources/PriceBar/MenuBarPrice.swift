@@ -11,11 +11,16 @@ import PriceBarCore
 /// a printed price list — and a template image takes the menu bar's own tint,
 /// so it looks native in light and dark alike.
 ///
-/// Every image is drawn on one width, the widest of the coins taking turns,
-/// and the price is drawn against the right edge of it. The room a narrower
-/// price leaves unused then sits to the left of the coin — where it reads as
-/// the menu bar's own spacing — instead of after the change, where it read as
-/// a gap between the number and the end of the item.
+/// Every image is drawn at one width, the widest price of the coins taking
+/// turns, with the text against the left edge of it. The change is the item's
+/// title, and its own block is as wide as the widest change; the text inside
+/// that block is pushed to the right. So the coin and the price start at one
+/// place, the change ends at another, and neither moves when the other grows
+/// shorter: the space between them gives, which is the only part of a label
+/// nobody is reading.
+///
+/// Each block is measured ahead, against samples of the widest coin and the
+/// widest change, not against whichever values are on screen.
 enum MenuBarPrice {
     /// One coin's label: the coin on the left, the currency a size down, then
     /// the price. Compared to tell a new coin from a new price for the same
@@ -100,20 +105,26 @@ enum MenuBarPrice {
     /// The change as the item's title: the menu bar sets this text itself, in
     /// the colour given here, so green and red survive any choice above.
     ///
+    /// `width` is the block the change sits in — the widest change of the
+    /// coins the menu bar shows. The text is pushed to its right, so the
+    /// "%" ends in the same place whether this coin's change is long or
+    /// short, and the gap that opens is the one before it.
+    ///
     /// `opacity` is how the change joins a scroll: it cannot ride one — a
     /// title sits on a single line — so it fades out with the old coin and in
     /// with the new one instead.
     static func changeTitle(
         _ label: Label,
         colors: ChangeColors,
+        width: CGFloat = 0,
         opacity: CGFloat = 1
     ) -> NSAttributedString {
         let font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        let shown = label.change.isEmpty ? widthReserve(label.changeValue) : label.change
+        let shown = label.change.isEmpty ? Self.changeSample : label.change
         // No space before the change: the item leaves a fixed gap between the
         // image and the title, and a space on top of it would grow that gap
         // with the font rather than keep it the same for every coin.
-        return NSAttributedString(
+        let text = NSMutableAttributedString(
             string: shown,
             attributes: [
                 .font: font,
@@ -121,25 +132,57 @@ enum MenuBarPrice {
                     .withAlphaComponent(opacity),
             ]
         )
+        return padded(text, to: width, font: font)
     }
 
-    /// The room the change takes as the item's title, the same for every coin:
-    /// the wider of a full-width sample and whatever this one prints.
-    static func changeWidth(_ change: Double) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        return ceil(widthReserve(change).size(withAttributes: [.font: font]).width)
-    }
-
-    /// The width the price is drawn into, so that the whole item keeps one
-    /// width whatever coin is showing.
+    /// The room the change takes as the item's title.
     ///
-    /// It is the widest price, plus the room this coin's change does not need.
-    /// The price is drawn against the right edge of it, so both the price and
-    /// the change beside it hold still, and the slack ends up on the far left
-    /// of the label — before the coin, where the menu bar already has a gap of
-    /// its own — rather than between the "%" and the end of the item.
-    static func canvasWidth(change: CGFloat, widestPrice: CGFloat, widestChange: CGFloat) -> CGFloat {
-        widestPrice + max(0, widestChange - change)
+    /// Measured against a sample wide enough for any change a coin can print —
+    /// `▲00.00%` — rather than against the value on screen. A block that
+    /// followed the value would shrink the item the moment a coin crossed
+    /// flat, and every icon beside it would shift; the block is there to hold
+    /// still, and the change inside it is what moves.
+    static func changeWidth() -> CGFloat {
+        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        return ceil(changeSample.size(withAttributes: [.font: font]).width)
+    }
+
+    /// A full stop, drawn clear: no ink, but a real width, and not whitespace.
+    ///
+    /// The menu bar measures the leading whitespace of a title but does not
+    /// draw it, so a title padded with spaces comes out measured wide and
+    /// drawn from the left of its block. A glyph is measured and drawn alike,
+    /// and a clear one is invisible either way.
+    private static let blank = "."
+
+    /// Clear full stops in front of `text`, so that the text ends `target`
+    /// points from where the block starts.
+    private static func padded(
+        _ text: NSMutableAttributedString,
+        to target: CGFloat,
+        font: NSFont
+    ) -> NSAttributedString {
+        let gap = target - text.size().width
+        guard gap > 0.01 else { return text }
+
+        let unit = (blank as NSString).size(withAttributes: [.font: font]).width
+        let count = Int(gap / unit)
+        let out = NSMutableAttributedString(
+            string: String(repeating: blank, count: count),
+            attributes: [.font: font, .foregroundColor: NSColor.clear]
+        )
+        // Whole stops land short of the target by less than one of them; a kern
+        // on the last pays the difference, so the text starts on the point.
+        out.append(NSAttributedString(
+            string: blank,
+            attributes: [
+                .font: font,
+                .foregroundColor: NSColor.clear,
+                .kern: gap - CGFloat(count + 1) * unit,
+            ]
+        ))
+        out.append(text)
+        return out
     }
 
     /// How wide the drawn part of this coin's label would be, on its own.
@@ -147,30 +190,24 @@ enum MenuBarPrice {
         ceil(attributed(label).size().width)
     }
 
-    /// The change text to measure the item's width against.
+    /// The change text the title's block is measured against: a sample wide
+    /// enough for any change a coin can print.
     ///
-    /// A change that rounds to nothing prints as nothing, and a label that
-    /// loses forty points the moment a coin crosses flat would shift every
-    /// icon beside it. So an empty change is measured as if it were there.
-    ///
-    /// The title is not drawn here, so this width no longer feeds the image.
-    /// It measures the room the change takes as a title, which the panel's
-    /// preview and the item's own width are written against.
-    static func widthReserve(_ change: Double) -> String {
-        let text = formatArrowed(change)
-        return text.isEmpty ? "▲00.00%" : text
-    }
+    /// The block keeps this width whatever the coin is doing, so a coin that
+    /// crosses flat does not shrink the item and shift every icon beside it.
+    private static let changeSample = "▲00.00%"
 
-    /// `width` is the room the label has: the widest label of the coins the
+    /// `width` is the room the label has: the widest price of the coins the
     /// menu bar shows, so that the item never changes size between them. The
-    /// price is drawn against its right edge, which keeps it and the change
-    /// beside it in one place while the slack sits out of sight on the left.
+    /// text is drawn against the left edge, which puts every coin's code in
+    /// the same place; the change to its right is what moves, inside a block
+    /// of its own, and it moves to the right.
     static func image(_ label: Label, width: CGFloat, tint: NSColor? = nil) -> NSImage {
         let text = attributed(label, colour: tint ?? .black)
         let size = text.size()
         let canvas = NSSize(width: contentWidth(text, width), height: ceil(size.height))
         let image = NSImage(size: canvas, flipped: false) { _ in
-            text.draw(at: NSPoint(x: rightEdge(of: text, in: canvas), y: 0))
+            text.draw(at: NSPoint(x: 0.5, y: 0))
             return true
         }
         image.isTemplate = tint == nil
@@ -201,8 +238,8 @@ enum MenuBarPrice {
             let travel = progress * lift
             // The old label leaves upward, the new one follows it into the
             // space it is leaving, so the two are always exactly one apart.
-            out.draw(at: NSPoint(x: rightEdge(of: out, in: canvas), y: travel))
-            into.draw(at: NSPoint(x: rightEdge(of: into, in: canvas), y: travel - lift))
+            out.draw(at: NSPoint(x: 0.5, y: travel))
+            into.draw(at: NSPoint(x: 0.5, y: travel - lift))
             return true
         }
         image.isTemplate = tint == nil
@@ -245,11 +282,5 @@ enum MenuBarPrice {
     /// visible at this size.
     private static func contentWidth(_ text: NSAttributedString, _ width: CGFloat) -> CGFloat {
         max(width, ceil(text.size().width)) + 1
-    }
-
-    /// Where a line of text starts so that it ends half a point short of the
-    /// canvas' right edge.
-    private static func rightEdge(of text: NSAttributedString, in canvas: NSSize) -> CGFloat {
-        max(0.5, canvas.width - ceil(text.size().width) - 0.5)
     }
 }

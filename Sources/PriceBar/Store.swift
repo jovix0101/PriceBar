@@ -163,10 +163,10 @@ final class Store {
     }
 
     /// The widest price the menu bar has to draw, in points: every coin's
-    /// price is drawn into this width, so that the change beside it never
-    /// moves. Read off the prices in hand; a coin whose price has not arrived
-    /// is measured at the widest price it could have, which is the one already
-    /// showing.
+    /// price is drawn into this width and against its left edge, so the code
+    /// and the price of every coin start in the same place. Read off the
+    /// prices in hand; a coin whose price has not arrived is measured at the
+    /// width already showing.
     ///
     /// This is the price alone. The change rides beside it as the item's title
     /// and brings its own width with it; `menuBarChangeWidth` is how much room
@@ -186,12 +186,12 @@ final class Store {
 
     /// The widest change on the menu bar's list, in points.
     ///
-    /// "▲2.02%" and "▼0.31%" are not the same width. The item is kept one
-    /// width by drawing the price a little further from the left edge when the
-    /// change is short, so the difference lands before the coin rather than
-    /// after the "%".
+    /// "▲2.02%" and "▼0.31%" are not the same width. The title is given this
+    /// width every time and the change is pushed to its right, so the "%"
+    /// ends in one place for every coin, and what a short change leaves unused
+    /// opens as a gap before it rather than after it.
     var menuBarChangeWidth: CGFloat {
-        menuBarQuotes.map { MenuBarPrice.changeWidth($0.change) }.max() ?? 0
+        MenuBarPrice.changeWidth()
     }
 
     /// The whole label as it will read in the menu bar, price and change

@@ -88,21 +88,11 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     /// Puts `label` in the item with no motion: the price drawn, the change
     /// beside it as a title.
     private func show(_ label: MenuBarPrice.Label) {
-        item.button?.image = MenuBarPrice.image(label, width: canvas(for: label), tint: tint)
-        item.button?.attributedTitle = MenuBarPrice.changeTitle(label, colors: store.changeColors)
-    }
-
-    /// The room the price is drawn into.
-    ///
-    /// Every price is drawn on the widest one's width, against the right edge
-    /// of it, and the change after it is measured too — so the whole item is
-    /// one width whatever coin is showing, the "%" stays against its right
-    /// edge, and the room left over sits out of sight before the coin.
-    private func canvas(for label: MenuBarPrice.Label) -> CGFloat {
-        MenuBarPrice.canvasWidth(
-            change: MenuBarPrice.changeWidth(label.changeValue),
-            widestPrice: store.menuBarWidth,
-            widestChange: store.menuBarChangeWidth
+        item.button?.image = MenuBarPrice.image(label, width: store.menuBarWidth, tint: tint)
+        item.button?.attributedTitle = MenuBarPrice.changeTitle(
+            label,
+            colors: store.changeColors,
+            width: store.menuBarChangeWidth
         )
     }
 
@@ -147,14 +137,24 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         // as it used to be, it read as the change being late.
         let half = 0.5
         item.button?.attributedTitle = if eased < half {
-            MenuBarPrice.changeTitle(old, colors: store.changeColors, opacity: 1 - eased / half)
+            MenuBarPrice.changeTitle(
+                old,
+                colors: store.changeColors,
+                width: store.menuBarChangeWidth,
+                opacity: 1 - eased / half
+            )
         } else {
-            MenuBarPrice.changeTitle(new, colors: store.changeColors, opacity: (eased - half) / half)
+            MenuBarPrice.changeTitle(
+                new,
+                colors: store.changeColors,
+                width: store.menuBarChangeWidth,
+                opacity: (eased - half) / half
+            )
         }
         item.button?.image = MenuBarPrice.scrolling(
             from: old,
             to: new,
-            width: canvas(for: new),
+            width: store.menuBarWidth,
             progress: CGFloat(eased),
             tint: tint
         )
