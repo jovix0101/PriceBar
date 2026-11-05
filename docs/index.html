@@ -3,12 +3,51 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PriceBar — 币价就在菜单栏里</title>
-<meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种实时价格、24 小时行情线、价格越过设定的线就发通知。">
+<title>PriceBar — macOS 菜单栏币价与价格提醒</title>
+<meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种的价格钉在菜单栏，点开是面板，有 24 小时行情线与涨跌幅；价格越过设定的线就发系统通知。开源、免费。">
+<link rel="canonical" href="https://jovix0101.github.io/pricebar/">
+<meta name="theme-color" content="#f8f8f7">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2316181c'/%3E%3Cpath d='M12 40l10-9 8 5 9-13 13-6' fill='none' stroke='%2334c759' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PriceBar">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://jovix0101.github.io/pricebar/">
+<meta property="og:title" content="PriceBar — 币价就在菜单栏里">
+<meta property="og:description" content="macOS 菜单栏币价工具：实时价格、24 小时行情线、价格提醒。开源、免费。">
+<meta property="og:image" content="https://jovix0101.github.io/pricebar/card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PriceBar — 币价就在菜单栏里">
+<meta name="twitter:description" content="macOS 菜单栏币价工具：实时价格、24 小时行情线、价格提醒。开源、免费。">
+<meta name="twitter:image" content="https://jovix0101.github.io/pricebar/card.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "PriceBar",
+  "operatingSystem": "macOS 14+",
+  "applicationCategory": "FinanceApplication",
+  "applicationSubCategory": "Cryptocurrency price ticker",
+  "description": "macOS 菜单栏加密货币价格工具：实时价格、24 小时行情线、价格与涨跌幅提醒。",
+  "url": "https://jovix0101.github.io/pricebar/",
+  "downloadUrl": "https://github.com/jovix0101/pricebar/releases/latest",
+  "screenshot": "https://jovix0101.github.io/pricebar/panel.png",
+  "softwareVersion": "0.1.0",
+  "license": "https://opensource.org/license/mit",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "jovix0101", "url": "https://github.com/jovix0101" },
+  "codeRepository": "https://github.com/jovix0101/pricebar"
+}
+</script>
+
 <style>
   :root {
     --ink: #16181c;
+    --body: #3d4249;
     --muted: #6a7076;
     --faint: #9aa0a6;
     --line: #e2e4e7;
@@ -17,14 +56,12 @@
     --up: #1f9d4d;
     --down: #d33a2c;
     --accent: #0a63d6;
-
     --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
             "Helvetica Neue", "Microsoft YaHei", sans-serif;
   }
 
   * { box-sizing: border-box; }
-
   html { -webkit-text-size-adjust: 100%; }
 
   body {
@@ -40,118 +77,44 @@
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-  .wrap {
-    width: 100%;
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  /* ── 顶部：跑马灯价带 ───────────────────────────────── */
-
-  .tape {
-    border-bottom: 1px solid var(--line);
-    overflow: hidden;
-    background: #f2f2f1;
-    padding: 9px 0;
-  }
-
-  .tape-track {
-    display: flex;
-    width: max-content;
-    animation: slide 64s linear infinite;
-  }
-
-  .tape:hover .tape-track { animation-play-state: paused; }
-
-  .tape-group {
-    display: flex;
-    align-items: baseline;
-    gap: 22px;
-    padding-right: 22px;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.02em;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  .tape-group b {
-    font-family: var(--sans);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--ink);
-  }
-
-  .tape-group .up { color: var(--up); }
-  .tape-group .down { color: var(--down); }
-
-  @keyframes slide {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .tape-track { animation: none; }
-    .tape { display: none; }
-  }
-
-  /* ── 页眉 ─────────────────────────────────────────── */
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 24px; }
 
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 22px 0 0;
+    padding-top: 28px;
+    font-size: 14px;
   }
 
-  .wordmark {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    font-size: 15px;
-  }
-
-  .wordmark svg { display: block; }
-
-  header nav {
-    display: flex;
-    gap: 18px;
-    font-size: 13px;
-    color: var(--muted);
-  }
-
+  .wordmark { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; }
+  header nav { display: flex; gap: 18px; color: var(--muted); }
   header nav a { color: var(--muted); }
 
-  /* ── 首屏 ─────────────────────────────────────────── */
-
-  .hero { padding: 64px 0 0; }
+  .hero { padding-top: 54px; }
 
   h1 {
     margin: 0;
-    font-size: clamp(30px, 7vw, 46px);
-    line-height: 1.28;
-    letter-spacing: -0.025em;
+    font-size: clamp(28px, 6.4vw, 42px);
+    line-height: 1.3;
+    letter-spacing: -0.02em;
     font-weight: 600;
   }
 
   .lede {
-    margin: 18px 0 0;
-    max-width: 34em;
+    margin: 16px 0 0;
+    max-width: 30em;
     font-size: 17px;
-    line-height: 1.72;
-    color: #3d4249;
+    line-height: 1.7;
+    color: var(--body);
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 20px;
+    gap: 10px 18px;
     align-items: center;
-    margin: 30px 0 0;
+    margin-top: 28px;
     font-size: 14px;
   }
 
@@ -164,24 +127,23 @@
     background: var(--ink);
     color: #fff;
     font-weight: 500;
-    font-size: 14px;
   }
 
   .btn:hover { text-decoration: none; background: #22262d; }
-
   .actions .meta { color: var(--faint); font-size: 13px; }
 
-  /* ── 菜单栏示意 ───────────────────────────────────── */
-
+  /* 菜单栏示意：把 app 的样子先看一眼，再往下读 */
   .menubar {
-    margin: 52px 0 0;
+    margin-top: 46px;
     border-radius: 9px;
     background: linear-gradient(180deg, #34353a, #26272b);
     box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 12px 32px -18px rgba(0,0,0,.5);
-    padding: 7px 16px;
+    padding: 8px 18px;
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 20px;
   }
 
   .label {
@@ -194,42 +156,39 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .label + .label { margin-left: 18px; }
-
   .label .coin {
     font-family: var(--sans);
     font-size: 10px;
     font-weight: 500;
     letter-spacing: 0.04em;
-    color: #f2f2f4;
   }
 
-  .label .sym {
-    font-size: 10px;
-    color: #e4e5e8;
-  }
+  .label .sym { font-size: 10px; color: #e4e5e8; }
 
-  /* The change is drawn green or red by the app itself, whatever text
-     colour is chosen, so the mockup says the same thing. */
-  .label .chg {
-    font-size: 10px;
-    color: #34c759;
-  }
+  /* 涨跌幅永远是红绿，与文字颜色设置无关，所以示意图也这样画 */
+  .label .chg { font-size: 10px; color: #34c759; }
+  .label .down { color: #ff6961; }
 
-  .figcap {
+  .cap {
     margin: 12px 0 0;
     font-size: 12.5px;
     line-height: 1.6;
     color: var(--faint);
   }
 
-  /* ── 截图 ─────────────────────────────────────────── */
+  section { padding-top: 58px; }
+
+  h2 {
+    margin: 0 0 14px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
 
   figure { margin: 0; }
 
   .shot {
     display: block;
-    width: 100%;
     height: auto;
     border-radius: 10px;
     border: 1px solid var(--line);
@@ -237,68 +196,24 @@
     box-shadow: 0 18px 40px -30px rgba(20,24,30,.45);
   }
 
-  .shot-panel {
-    max-width: 320px;
-    border-radius: 12px;
-  }
+  .shot-panel { width: 280px; max-width: 100%; }
+  /* 2× 渲染的截图按 1× 大小显示：Retina 上依然清晰，又不至于占满一屏 */
+  .shot-settings { width: 380px; max-width: 100%; }
 
-  .shot-settings {
-    max-width: 300px;
-    margin: 0 auto;
-  }
-
-  /* ── 章节 ─────────────────────────────────────────── */
-
-  section { padding: 76px 0 0; }
-
-  h2 {
-    margin: 0 0 6px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    color: var(--faint);
-    text-transform: uppercase;
-  }
-
-  .sub {
-    margin: 0 0 30px;
-    font-size: 15px;
-    color: var(--muted);
-    max-width: 40em;
-  }
-
-  /* 数据表：像仪器说明书 */
-
-  dl.spec {
-    margin: 0;
-    border-top: 1px solid var(--line);
-  }
-
-  dl.spec > div {
+  /* 截图与说明并排：一屏看完，不用滚两次 */
+  .pair {
     display: grid;
-    grid-template-columns: 7.5em 1fr;
-    gap: 4px 20px;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: 280px 1fr;
+    gap: 28px;
+    align-items: start;
   }
 
-  dl.spec dt {
-    font-size: 13px;
-    color: var(--faint);
-    letter-spacing: 0.02em;
-  }
-
-  dl.spec dd {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.65;
-  }
-
-  dl.spec dd .num {
-    font-family: var(--mono);
-    font-size: 13.5px;
-    font-variant-numeric: tabular-nums;
-  }
+  .points { margin: 0; padding: 0; list-style: none; }
+  .points li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .points li:first-child { padding-top: 0; }
+  .points li:last-child { border-bottom: 0; }
+  .points b { display: block; font-weight: 600; }
+  .points span { color: var(--body); font-size: 14px; line-height: 1.65; }
 
   code {
     font-family: var(--mono);
@@ -310,31 +225,22 @@
 
   pre {
     margin: 0;
-    padding: 18px 20px;
+    padding: 16px 18px;
     border-radius: 9px;
     background: #1b1e23;
     color: #e6e7ea;
     overflow-x: auto;
     font-family: var(--mono);
     font-size: 13px;
-    line-height: 1.85;
+    line-height: 1.8;
   }
 
   pre .c { color: #7f868f; }
 
-  .note {
-    margin: 22px 0 0;
-    padding: 16px 18px;
-    border-left: 2px solid var(--line);
-    font-size: 14px;
-    line-height: 1.7;
-    color: var(--muted);
-  }
-
   footer {
-    margin-top: 90px;
+    margin-top: 80px;
     border-top: 1px solid var(--line);
-    padding: 26px 0 60px;
+    padding: 24px 0 60px;
     font-size: 13px;
     color: var(--faint);
     display: flex;
@@ -344,39 +250,19 @@
   }
 
   @media (max-width: 560px) {
-    .hero { padding-top: 44px; }
-    section { padding-top: 60px; }
-    dl.spec > div { grid-template-columns: 1fr; gap: 2px; }
-    .shot-panel { max-width: 100%; }
+    .hero { padding-top: 40px; }
+    section { padding-top: 52px; }
+    .menubar { justify-content: flex-start; gap: 3px 12px; padding: 8px 12px; }
+    .label { font-size: 12px; }
+    .pair { grid-template-columns: 1fr; gap: 22px; }
+  }
+
+  @media (max-width: 400px) {
+    .label { font-size: 11px; }
   }
 </style>
 </head>
 <body>
-
-<div class="tape" aria-hidden="true">
-  <div class="tape-track">
-    <div class="tape-group">
-      <span><b>BTC</b> $ 78,180 <span class="up">▲ +2.02%</span></span>
-      <span><b>ETH</b> $ 2,307 <span class="up">▲ +2.33%</span></span>
-      <span><b>SOL</b> $ 93.17 <span class="up">▲ +1.37%</span></span>
-      <span><b>BNB</b> $ 612.40 <span class="down">▼ -0.41%</span></span>
-      <span><b>XRP</b> $ 2.19 <span class="up">▲ +0.86%</span></span>
-      <span><b>DOGE</b> $ 0.1673 <span class="down">▼ -1.12%</span></span>
-      <span><b>ADA</b> $ 0.5814 <span class="up">▲ +3.04%</span></span>
-      <span><b>AVAX</b> $ 21.86 <span class="down">▼ -0.77%</span></span>
-    </div>
-    <div class="tape-group">
-      <span><b>BTC</b> $ 78,180 <span class="up">▲ +2.02%</span></span>
-      <span><b>ETH</b> $ 2,307 <span class="up">▲ +2.33%</span></span>
-      <span><b>SOL</b> $ 93.17 <span class="up">▲ +1.37%</span></span>
-      <span><b>BNB</b> $ 612.40 <span class="down">▼ -0.41%</span></span>
-      <span><b>XRP</b> $ 2.19 <span class="up">▲ +0.86%</span></span>
-      <span><b>DOGE</b> $ 0.1673 <span class="down">▼ -1.12%</span></span>
-      <span><b>ADA</b> $ 0.5814 <span class="up">▲ +3.04%</span></span>
-      <span><b>AVAX</b> $ 21.86 <span class="down">▼ -0.77%</span></span>
-    </div>
-  </div>
-</div>
 
 <div class="wrap">
 
@@ -403,80 +289,68 @@
     </p>
 
     <div class="actions">
-      <a class="btn" href="https://github.com/jovix0101/pricebar">
-        在 GitHub 上查看
+      <a class="btn" href="https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg">
+        下载 .dmg
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6"
+          <path d="M8 2v8M4.5 7l3.5 3.5L11.5 7M2.5 13h11" stroke="currentColor" stroke-width="1.6"
                 stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
       <span class="meta">开源 · MIT · 需要 macOS 14</span>
     </div>
 
-    <div class="menubar">
+    <div class="menubar" role="img" aria-label="菜单栏示例：BTC $ 80,356 ▲2.39%，ETH $ 2,414 ▲3.92%，SOL $ 96.55 ▼1.20%">
       <div class="label">
-        <span class="coin">BTC</span>
-        <span class="sym">$</span>
-        <span>80,575</span>
-        <span class="chg">▲2.89%</span>
+        <span class="coin">BTC</span><span class="sym">$</span><span>80,356</span><span class="chg">▲2.39%</span>
       </div>
       <div class="label">
-        <span class="coin">ETH</span>
-        <span class="sym">$</span>
-        <span>2,424</span>
-        <span class="chg">▲5.2%</span>
+        <span class="coin">ETH</span><span class="sym">$</span><span>2,414</span><span class="chg">▲3.92%</span>
+      </div>
+      <div class="label">
+        <span class="coin">SOL</span><span class="sym">$</span><span>96.55</span><span class="chg down">▼1.20%</span>
       </div>
     </div>
-    <p class="figcap">菜单栏里长这样：币种、价格、24 小时涨跌幅。勾选几个就并排显示几个。</p>
+    <p class="cap">勾选几个币种，就并排显示几个。</p>
   </div>
 
   <section>
-    <h2>面板</h2>
-    <p class="sub">点一下菜单栏图标。每行一个币种：名字、24 小时走势、现价、涨跌幅。</p>
-    <figure>
-      <img class="shot shot-panel" src="panel.png" width="560" height="234"
-           alt="PriceBar 面板：BTC、ETH、SOL 三行，各自带 24 小时行情线、美元价格与涨幅">
-      <figcaption class="figcap">面板宽度 280 pt，不挡其他窗口。</figcaption>
-    </figure>
-  </section>
-
-  <section>
-    <h2>它还做三件事</h2>
-    <dl class="spec">
-      <div><dt>行情线</dt><dd>24 小时，每小时一个点。只在打开面板时取。</dd></div>
-      <div><dt>提醒</dt><dd>价格越过你设的线，发一条系统通知。触发后待命，不反复打扰。</dd></div>
-      <div><dt>换源</dt><dd>Binance、Gate、OKX、Bybit 四家，设置里切换，境外网络可以挂代理。</dd></div>
-    </dl>
-    <p class="note">
-      计价货币可在美元和人民币之间切换，汇率每天更新一次。
-      提醒的阈值始终按美元存，换货币不会让你的规则变意思。
-    </p>
+    <div class="pair">
+      <figure>
+        <img class="shot shot-panel" src="panel.png" width="560" height="234" loading="lazy"
+             alt="PriceBar 面板：BTC、ETH、SOL 三行，各自带 24 小时行情线、美元价格与涨跌幅">
+        <figcaption class="cap">点开菜单栏图标，每行一个币种：24 小时走势、现价、涨跌幅。</figcaption>
+      </figure>
+      <ul class="points">
+        <li><b>价格提醒</b><span>越过你设的线就发通知，触发后待命，不反复打扰。</span></li>
+        <li><b>换数据源</b><span>Binance、Gate、OKX、Bybit 四家，境外网络可挂代理。</span></li>
+        <li><b>换货币</b><span>美元与人民币，汇率每天更新一次。</span></li>
+      </ul>
+    </div>
   </section>
 
   <section>
     <h2>设置</h2>
-    <figure class="shot-settings">
-      <img class="shot" src="settings.png" width="760" height="1554"
-           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏显示的币种、数据源与代理、开机自启">
+    <figure>
+      <img class="shot shot-settings" src="settings.png" width="760" height="1554" loading="lazy"
+           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏显示哪些币种、数据源与代理、开机自启">
+      <figcaption class="cap">能改的东西都在这一屏：货币、刷新间隔、菜单栏币种与顺序、数据源与代理、开机自启。</figcaption>
     </figure>
-    <p class="figcap" style="text-align:center;max-width:32em;margin:14px auto 0">
-      计价货币、刷新间隔、菜单栏显示的币种、数据源与代理、开机自启，五组一屏看完。
-    </p>
   </section>
 
   <section>
     <h2>装起来</h2>
-    <p class="sub">需要 macOS 14 以上。</p>
-    <p style="margin:0 0 14px">
-      <a class="btn" href="https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.zip">下载 .app</a>
-      <span class="c" style="margin-left:10px">下载后解压，把 PriceBar.app 拖进「应用程序」。未做公证，首次打开请右键点「打开」。</span>
+    <p style="margin:0 0 16px;color:var(--body)">
+      打开 <code>PriceBar.dmg</code>，把 <code>PriceBar.app</code> 拖进「应用程序」。
+      没有公证，首次打开若被拦，右键点「打开」一次。
     </p>
-    <p class="sub">或者自己编：没有第三方依赖，Xcode 或 Command Line Tools 就够。</p>
+    <p style="margin:0 0 12px;color:var(--body)">
+      也可以自己编，没有第三方依赖：
+    </p>
 <pre><span class="c"># 取源码</span>
 git clone https://github.com/jovix0101/pricebar.git
 cd pricebar
 
-<span class="c"># 编译并打包成 .app（自动签名）</span>
+<span class="c"># 编译、打包成 .app 与 .dmg</span>
 ./build.sh
 
 <span class="c"># 放到应用程序目录后打开</span>
@@ -488,6 +362,7 @@ open /Applications/PriceBar.app</pre>
     <span>PriceBar · 一个菜单栏工具</span>
     <span>
       <a href="https://github.com/jovix0101/pricebar">源码</a> ·
+      <a href="https://github.com/jovix0101/pricebar/blob/main/README.md">文档</a> ·
       MIT License
     </span>
   </footer>

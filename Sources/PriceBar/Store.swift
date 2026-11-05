@@ -123,11 +123,18 @@ final class Store {
 
     /// Loads the settings the app remembers. A preview, or a test, gives them
     /// its own, with prices to show and no network behind them.
-    init(settings: AppSettings = .load(), quotes: [Quote] = [], rate: Double? = nil, error: String? = nil) {
+    init(
+        settings: AppSettings = .load(),
+        quotes: [Quote] = [],
+        rate: Double? = nil,
+        error: String? = nil,
+        lines: [String: [Double]] = [:]
+    ) {
         self.settings = settings
         self.quotes = quotes
         self.rate = rate
         self.error = error
+        self.lines = lines
         self.engine = AlertEngine(rules: settings.rules)
         self.session = ProxySettings(mode: settings.proxyMode, address: settings.proxyAddress).session()
     }

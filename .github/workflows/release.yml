@@ -43,18 +43,21 @@ jobs:
 
       - name: Package
         run: |
-          ditto -c -k --keepParent build/PriceBar.app "PriceBar-$VERSION.zip"
+          # build.sh leaves a disk image beside the app: one window holding the
+          # app and a shortcut to Applications, which is what someone who just
+          # downloaded a menu bar tool expects to see.
+          cp build/PriceBar.dmg "PriceBar-$VERSION.dmg"
           # A copy under a name that never changes, so that the "latest"
           # download link on the product page keeps working across versions.
-          cp "PriceBar-$VERSION.zip" PriceBar.zip
-          ls -lh PriceBar-*.zip PriceBar.zip
+          cp "PriceBar-$VERSION.dmg" PriceBar.dmg
+          ls -lh PriceBar-*.dmg PriceBar.dmg
 
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            gh release create "$GITHUB_REF_NAME" "PriceBar-$VERSION.zip" PriceBar.zip \
+            gh release create "$GITHUB_REF_NAME" "PriceBar-$VERSION.dmg" PriceBar.dmg \
               --title "PriceBar $VERSION" \
               --generate-notes
           else
@@ -67,8 +70,9 @@ jobs:
                 --title "PriceBar 每日构建" \
                 --notes "每次推送 main 都会重写这个版本。未做公证：首次打开请右键点「打开」。"
             else
+              # Both names, so that the zip from before the switch goes too.
+              gh release delete-asset nightly PriceBar.dmg --yes || true
               gh release delete-asset nightly PriceBar.zip --yes || true
             fi
-            cp "PriceBar-$VERSION.zip" PriceBar.zip
-            gh release upload nightly PriceBar.zip
+            gh release upload nightly PriceBar.dmg
           fi

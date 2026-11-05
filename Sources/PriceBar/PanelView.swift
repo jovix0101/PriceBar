@@ -231,12 +231,29 @@ private struct PriceRow: View {
     }
 }
 
+/// A day of made-up prices, for the previews: a line is the shape of a day,
+/// and a flat one would say nothing about it.
+private func sampleLine(from start: Double, drift: Double, wobble: Double) -> [Double] {
+    var value = start
+    return (0..<24).map { hour in
+        value *= 1 + drift + wobble * sin(Double(hour) * 1.1)
+        return value
+    }
+}
+
+private let sampleLines = [
+    "BTC": sampleLine(from: 75_000, drift: 0.0012, wobble: 0.004),
+    "ETH": sampleLine(from: 2_300, drift: 0.0021, wobble: 0.006),
+    "SOL": sampleLine(from: 140, drift: 0.0014, wobble: 0.007),
+]
+
 #Preview("面板") {
     PanelView(store: Store(
         quotes: [
             Quote(coin: "BTC", price: 77424, change: 2.41),
             Quote(coin: "ETH", price: 2287, change: -0.87),
-        ]
+        ],
+        lines: sampleLines
     ))
 }
 
@@ -251,7 +268,8 @@ private struct PriceRow: View {
             Quote(coin: "BTC", price: 77424, change: 2.41),
             Quote(coin: "ETH", price: 2287, change: -0.87),
         ],
-        rate: 6.67
+        rate: 6.67,
+        lines: sampleLines
     ))
 }
 

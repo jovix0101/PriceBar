@@ -78,5 +78,20 @@ PLIST
 echo "==> Signing (ad hoc)"
 codesign --force --deep --sign - "$APP"
 
+# A disk image, for handing the app to someone: it opens as a window with the
+# app in it, beside a shortcut to Applications, which is what a download of a
+# menu bar tool should be. Built here rather than only in CI so that a working
+# copy can be tried the way a download will be.
+echo "==> Making a disk image"
+DMG="$BUILD_DIR/$APP_NAME.dmg"
+STAGE="$BUILD_DIR/dmg"
+rm -rf "$STAGE" "$DMG"
+mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+rm -rf "$STAGE"
+
 echo "==> Done: $APP"
 echo "    open $APP"
+echo "    open $DMG"
