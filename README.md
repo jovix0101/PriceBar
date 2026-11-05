@@ -66,6 +66,7 @@ Sources/PriceBar/           外壳
   LoginItem.swift           开机自启
 Tests/PriceBarCoreTests/    65 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
+Icon/                       应用图标：make-icon.swift 画出 AppIcon.icns
 docs/                       产品页与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
 ```

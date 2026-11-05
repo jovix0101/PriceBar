@@ -40,6 +40,7 @@ struct RulesView: View {
         }
         .padding(14)
         .frame(width: 300)
+        .takesKeyboard()
         .task {
             authorization = await Notifier.authorization()
         }
@@ -143,7 +144,7 @@ private struct RuleRow: View {
             Spacer(minLength: 0)
 
             if !rule.armed {
-                Button("重新武装") { store.rearm(rule.id) }
+                Button("重新启用") { store.rearm(rule.id) }
                     .buttonStyle(.link)
                     .font(.caption2)
             }

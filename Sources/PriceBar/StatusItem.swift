@@ -106,6 +106,13 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        // Activating hands the keyboard back to the window that had it last,
+        // the settings window if it is open; asked again once that is done,
+        // the panel keeps it.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.popover.isShown else { return }
+            self.popover.contentViewController?.view.window?.makeKey()
+        }
     }
 
     func popoverDidShow(_ notification: Notification) {

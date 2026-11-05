@@ -80,7 +80,7 @@ struct AddCoinView: View {
         }
         .padding(14)
         .frame(width: 260)
-        .onAppear { focused = true }
+        .takesKeyboard { focused = true }
     }
 
     /// One market: a box to tick when it can be added, or the reason it

@@ -53,6 +53,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
+        // ⌘A, ⌘C, ⌘V and the rest are not built into a text field: they are
+        // menu items the field answers to. Without an Edit menu the proxy
+        // address could be typed but not pasted. Nobody sees this menu — the
+        // app has no menu bar on screen — but its shortcuts work.
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "编辑")
+        editMenu.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "重做", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        mainMenu.addItem(editItem)
+
         NSApplication.shared.mainMenu = mainMenu
     }
 
