@@ -159,8 +159,14 @@ enum MenuBarPrice {
     /// on the line's baseline, and the two rules do not meet: with the image
     /// dropped in at zero, the change reads a few points low. `changeLift` is
     /// that difference, measured by rendering a real status item with a real
-    /// label and comparing where the digits of each land — the same figure at
-    /// every button height from 22 to 26 pt, so a constant is enough.
+    /// label and comparing where the digits of each land: the same figure at
+    /// every button height from 22 to 26 pt, so a constant is enough. It is the
+    /// shortfall after `rest()`, which is already taken out inside the change's
+    /// own image.
+    ///
+    /// Retina lands them on the same row at exactly 7, a 1x screen about one
+    /// device pixel lower; there is no value that is exact on both, and the
+    /// shortfall on a 1x screen is a hair on a 10 pt label.
     static func attach(_ image: NSImage) -> NSAttributedString {
         let attachment = NSTextAttachment()
         attachment.image = image
@@ -174,7 +180,7 @@ enum MenuBarPrice {
     }
 
     /// How far the change image sits above the title's baseline.
-    private static let changeLift: CGFloat = 8
+    private static let changeLift: CGFloat = 7
 
     /// The change as plain text, for the preview in Settings.
     static func changeTitle(_ label: Label, colors: ChangeColors) -> NSAttributedString {
