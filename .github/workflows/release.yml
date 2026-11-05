@@ -58,13 +58,17 @@ jobs:
               --title "PriceBar $VERSION" \
               --generate-notes
           else
-            # One rolling prerelease, rewritten by each push to main.
+            # One rolling prerelease, rewritten by each push to main. The asset
+            # keeps a fixed name so that old builds do not pile up beside it.
             if ! gh release view nightly >/dev/null 2>&1; then
               gh release create nightly \
                 --prerelease \
                 --target main \
                 --title "PriceBar 每日构建" \
                 --notes "每次推送 main 都会重写这个版本。未做公证：首次打开请右键点「打开」。"
+            else
+              gh release delete-asset nightly PriceBar.zip --yes || true
             fi
-            gh release upload nightly "PriceBar-$VERSION.zip" --clobber
+            cp "PriceBar-$VERSION.zip" PriceBar.zip
+            gh release upload nightly PriceBar.zip
           fi
