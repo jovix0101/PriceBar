@@ -7,7 +7,7 @@
 
 **[产品页 →](https://jovix0101.github.io/pricebar/)** ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
 
-![菜单栏与面板](docs/panel.png)
+![面板：每行一个币种，价格、涨跌幅与 24 小时行情线](docs/panel.png)
 
 ## 装
 
