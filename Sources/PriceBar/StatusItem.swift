@@ -6,26 +6,16 @@ import PriceBarCore
 ///
 /// An `NSStatusItem` of the app's own rather than SwiftUI's `MenuBarExtra`.
 /// `MenuBarExtra` keeps the panel's view alive after it closes, so the view
-/// cannot tell it has been closed — the lines were read once and never again,
-/// and the menu bar stopped taking turns. It also refuses a right click and
-/// gives no way to animate the label. Owning the item answers all three: the
-/// popover says when it opens and closes, the button answers both clicks, and
-/// the label is an image this file draws, one frame at a time.
+/// cannot tell it has been closed — the lines were read once and never again.
+/// It also refuses a right click and gives no way to reach the item's button.
+/// Owning the item answers all three: the popover says when it opens and
+/// closes, the button answers both clicks, and the label is set on the button
+/// whenever the store changes.
 @MainActor
 final class StatusItem: NSObject, NSPopoverDelegate {
     private let store: Store
     private let item: NSStatusItem
     private let popover = NSPopover()
-
-    /// The frame-by-frame scroll, while one is running.
-    private var scroll: Timer?
-    /// What the item is showing now, so that a change of coin can be told
-    /// from a change of price.
-    private var showing: MenuBarPrice.Label?
-
-    /// The colour the label is drawn in, or nil to keep it a template image
-    /// and let the menu bar tint it.
-    private var tint: NSColor? { MenuBarPrice.tint(for: store) }
 
     init(store: Store) {
         self.store = store
@@ -36,8 +26,6 @@ final class StatusItem: NSObject, NSPopoverDelegate {
         button?.target = self
         button?.action = #selector(clicked)
         button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        button?.imagePosition = .imageLeading
-        button?.imageScaling = .scaleNone
         button?.alignment = .left
 
         let hosting = NSHostingController(rootView: PanelView(store: store))
@@ -52,106 +40,24 @@ final class StatusItem: NSObject, NSPopoverDelegate {
 
     // MARK: - The label
 
-    /// Draws what the store says, animating if the coin is not the one on
-    /// screen. Called once at start and again whenever the store changes.
+    /// Draws what the store says. Called once at start and again whenever the
+    /// store changes.
     private func draw() {
-        guard let label = MenuBarPrice.label(for: store) else {
-            scroll?.invalidate()
-            scroll = nil
-            showing = nil
-            item.button?.image = nil
-            item.button?.title = "—"
-            item.button?.setAccessibilityLabel("价格")
+        let labels = MenuBarPrice.labels(for: store)
+        guard let button = item.button else { return }
+
+        guard !labels.isEmpty else {
+            button.attributedTitle = NSAttributedString(string: "—")
+            button.setAccessibilityLabel("价格")
             return
         }
 
-        item.button?.title = ""
-        item.button?.setAccessibilityLabel(store.menuBarReading)
-
-        let previous = showing
-        showing = label
-
-        // A price that ticked up is not worth a scroll: only a new coin is.
-        // The first label has nothing to scroll from, and Reduce Motion asks
-        // for no motion at all.
-        guard let previous, previous.coin != label.coin,
-              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        else {
-            scroll?.invalidate()
-            scroll = nil
-            show(label)
-            return
-        }
-        roll(from: previous, to: label)
-    }
-
-    /// Puts `label` in the item with no motion: the price drawn, the change
-    /// beside it as a title.
-    private func show(_ label: MenuBarPrice.Label) {
-        item.button?.image = MenuBarPrice.image(label, width: store.menuBarWidth, tint: tint)
-        item.button?.attributedTitle = MenuBarPrice.attach(
-            MenuBarPrice.changeImage(
-                label,
-                colors: store.changeColors,
-                width: store.menuBarChangeWidth
-            )
+        button.attributedTitle = MenuBarPrice.title(
+            labels,
+            choice: store.menuBarTint,
+            colors: store.changeColors
         )
-    }
-
-    /// Slides `to` up from below while `from` leaves through the top, both
-    /// cut off by the item's height. 200 ms with an ease-out tail: fast
-    /// enough to read as a turn, slow enough to follow which coin is which.
-    private func roll(from: MenuBarPrice.Label, to: MenuBarPrice.Label) {
-        scroll?.invalidate()
-
-        let started = Date()
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.step(from: `from`, to: to, started: started)
-            }
-        }
-        // The common modes, so that the scroll keeps its frames while a menu
-        // is tracking or a window is being dragged.
-        RunLoop.main.add(timer, forMode: .common)
-        scroll = timer
-    }
-
-    /// One frame of the scroll. The last one puts the new label down on its
-    /// own, so that the item ends on a sharp image rather than a frame of
-    /// something in transit.
-    private func step(
-        from old: MenuBarPrice.Label,
-        to new: MenuBarPrice.Label,
-        started: Date
-    ) {
-        let elapsed = Date().timeIntervalSince(started) / 0.2
-        guard elapsed < 1 else {
-            scroll?.invalidate()
-            scroll = nil
-            show(new)
-            return
-        }
-        let eased = 1 - pow(1 - elapsed, 3)
-
-        // The change rides the same scroll as the price, on the same progress,
-        // so the whole label turns as one thing. It is an image inside the
-        // title for exactly this: text in a title sits still.
-        item.button?.attributedTitle = MenuBarPrice.attach(
-            MenuBarPrice.scrollingChange(
-                from: old,
-                to: new,
-                colors: store.changeColors,
-                width: store.menuBarChangeWidth,
-                progress: CGFloat(eased)
-            )
-        )
-        item.button?.image = MenuBarPrice.scrolling(
-            from: old,
-            to: new,
-            width: store.menuBarWidth,
-            progress: CGFloat(eased),
-            tint: tint
-        )
+        button.setAccessibilityLabel(store.menuBarReading)
     }
 
     /// Redraws whenever anything the label is made of changes. The store is
@@ -159,10 +65,9 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     /// because a watch fires once.
     private func follow() {
         withObservationTracking {
-            _ = store.menuBarQuote
-            _ = store.menuBarWidth
-            _ = store.menuBarChangeWidth
+            _ = store.menuBarQuotes
             _ = store.currency
+            _ = store.rate
             _ = store.menuBarTint
             _ = store.changeColors
         } onChange: { [weak self] in

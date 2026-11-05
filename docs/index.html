@@ -194,6 +194,8 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .label + .label { margin-left: 18px; }
+
   .label .coin {
     font-family: var(--sans);
     font-size: 10px;
@@ -415,11 +417,17 @@
       <div class="label">
         <span class="coin">BTC</span>
         <span class="sym">$</span>
-        <span>78,180</span>
-        <span class="chg">▲2.02%</span>
+        <span>80,575</span>
+        <span class="chg">▲2.89%</span>
+      </div>
+      <div class="label">
+        <span class="coin">ETH</span>
+        <span class="sym">$</span>
+        <span>2,424</span>
+        <span class="chg">▲5.2%</span>
       </div>
     </div>
-    <p class="figcap">菜单栏里长这样：币种、价格，后面跟着 24 小时涨跌幅。勾选多个币种时，按设定间隔轮播。</p>
+    <p class="figcap">菜单栏里长这样：币种、价格、24 小时涨跌幅。勾选几个就并排显示几个。</p>
   </div>
 
   <section>
@@ -448,11 +456,11 @@
   <section>
     <h2>设置</h2>
     <figure class="shot-settings">
-      <img class="shot" src="settings.png" width="760" height="1470"
-           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏轮播、数据源与代理、开机自启">
+      <img class="shot" src="settings.png" width="760" height="1554"
+           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏显示的币种、数据源与代理、开机自启">
     </figure>
     <p class="figcap" style="text-align:center;max-width:32em;margin:14px auto 0">
-      计价货币、刷新间隔、菜单栏轮播、数据源与代理、开机自启，五组一屏看完。
+      计价货币、刷新间隔、菜单栏显示的币种、数据源与代理、开机自启，五组一屏看完。
     </p>
   </section>
 

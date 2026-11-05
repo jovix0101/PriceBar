@@ -37,26 +37,19 @@ final class Store {
     private(set) var connectionTest: ConnectionResult?
     private(set) var testing = false
 
-    /// Which of the menu bar coins is showing right now.
-    private(set) var rotationIndex = 0
     /// Whether the panel is on screen. Told by the status item, whose popover
     /// knows when it opens and closes.
     private(set) var panelIsOnScreen = false
 
-    /// The panel opened: it wants its lines, and the menu bar holds still
-    /// while it is being read.
+    /// The panel opened: it wants its lines.
     func panelOpened() {
         guard !panelIsOnScreen else { return }
         panelIsOnScreen = true
         loadLines()
     }
 
-    /// The panel closed: the menu bar takes turns again, starting from the
-    /// first coin, so that it always opens on the same one it closed with.
     func panelClosed() {
-        guard panelIsOnScreen else { return }
         panelIsOnScreen = false
-        rotationIndex = 0
     }
 
     var currency: Currency {
@@ -94,17 +87,14 @@ final class Store {
         set { apply { $0.proxyAddress = newValue } }
     }
 
-    /// The coins the menu bar takes turns showing, in panel order.
+    /// The coins the menu bar shows, in the order they sit there. Kept in
+    /// panel order, so that reordering the panel reorders the menu bar too.
     private(set) var menuBarCoins: [String] {
         get { settings.menuBarCoins }
         set { apply { $0.menuBarCoins = newValue } }
     }
 
-    var rotateInterval: Double {
-        get { settings.rotateInterval }
-        set { apply { $0.rotateInterval = newValue } }
-    }
-
+    /// Every coin the panel lists, in the order it lists them.
     private(set) var coins: [String] {
         get { settings.coins }
         set { apply { $0.coins = newValue } }
@@ -122,7 +112,6 @@ final class Store {
 
     @ObservationIgnored private var engine: AlertEngine
     @ObservationIgnored private var timer: Timer?
-    @ObservationIgnored private var rotateTimer: Timer?
     @ObservationIgnored private var refreshing = false
     /// The way out to the network: one session for the source and proxy the
     /// settings name, rebuilt when either changes.
@@ -155,69 +144,34 @@ final class Store {
         return Array(quotes.prefix(1))
     }
 
-    /// The price the menu bar shows this second.
-    var menuBarQuote: Quote? {
-        let list = menuBarQuotes
-        guard !list.isEmpty else { return nil }
-        return list[rotationIndex % list.count]
-    }
-
-    /// The widest price the menu bar has to draw, in points: every coin's
-    /// price is drawn into this width and against its left edge, so the code
-    /// and the price of every coin start in the same place. Read off the
-    /// prices in hand; a coin whose price has not arrived is measured at the
-    /// width already showing.
-    ///
-    /// This is the price alone. The change rides beside it as the item's title
-    /// and brings its own width with it; `menuBarChangeWidth` is how much room
-    /// that can take.
-    var menuBarWidth: CGFloat {
-        let labels = menuBarQuotes.map { quote in
-            MenuBarPrice.width(of: MenuBarPrice.Label(
-                coin: quote.coin,
-                symbol: currency.symbol,
-                amount: amount(quote.price),
-                change: "",
-                changeValue: quote.change
-            ))
-        }
-        return labels.max() ?? 0
-    }
-
-    /// The widest change on the menu bar's list, in points.
-    ///
-    /// "▲2.02%" and "▼0.31%" are not the same width. The title is given this
-    /// width every time and the change is pushed to its right, so the "%"
-    /// ends in one place for every coin, and what a short change leaves unused
-    /// opens as a gap before it rather than after it.
-    var menuBarChangeWidth: CGFloat {
-        MenuBarPrice.changeWidth()
-    }
-
-    /// The whole label as it will read in the menu bar, price and change
-    /// together: what the settings page previews and a screen reader says.
+    /// The whole label as it will read in the menu bar, coin by coin: what a
+    /// screen reader says.
     var menuBarReading: String {
-        guard let quote = menuBarQuote else { return "" }
-        return "\(quote.coin) \(currency.symbol)\(amount(quote.price)) \(formatArrowed(quote.change))"
-            .trimmingCharacters(in: .whitespaces)
+        MenuBarPrice.reading(MenuBarPrice.labels(for: self))
     }
 
-    /// How the panel's footer names what the menu bar is doing.
+    /// How the panel's footer names what the menu bar is showing.
     var menuBarSummary: String {
-        if menuBarCoins.count > 1 { return "菜单栏：\(menuBarCoins.count) 个轮播" }
-        let coin = menuBarQuote?.coin ?? menuBarCoins.first
-        return "菜单栏：\(coin ?? "—")"
+        let shown = menuBarQuotes.map(\.coin)
+        guard !shown.isEmpty else { return "菜单栏：—" }
+        return "菜单栏：" + shown.joined(separator: "、")
     }
 
     func isOnMenuBar(_ coin: String) -> Bool {
         menuBarCoins.contains(coin)
     }
 
-    /// Adds a coin to the menu bar's turns, or takes it off. Taking the last
-    /// one off is allowed: the menu bar falls back to the first price rather
-    /// than refusing the click.
+    /// Adds a coin to the menu bar, or takes it off. Taking the last one off
+    /// is allowed: the menu bar falls back to the first price rather than
+    /// refusing the click.
     func toggleMenuBar(_ coin: String) {
-        menuBarCoins = MenuBarOrder.toggling(coin, panel: coins, menuBar: menuBarCoins)
+        menuBarCoins = CoinOrder.toggling(coin, panel: coins, menuBar: menuBarCoins)
+    }
+
+    /// Drops a coin onto another. One order for both places: the panel lists
+    /// the coins in it, and the menu bar puts the chosen ones in it.
+    func moveCoin(_ coin: String, onto target: String) {
+        coins = CoinOrder.moving(coin, onto: target, in: coins)
     }
 
     /// The rate to show a price in the chosen currency, or nil while the rate
@@ -277,7 +231,6 @@ final class Store {
             refresh()
         }
         schedule()
-        scheduleRotation()
     }
 
     private func loadRate() async {
@@ -290,26 +243,6 @@ final class Store {
         let every = max(3, interval)
         timer = Timer.scheduledTimer(withTimeInterval: every, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
-        }
-    }
-
-    /// Turns the menu bar from one coin to the next. Only the label changes:
-    /// the prices themselves are read on their own interval, so rotating
-    /// costs no requests.
-    private func scheduleRotation() {
-        rotateTimer?.invalidate()
-        rotationIndex = 0
-        guard menuBarCoins.count > 1 else {
-            rotateTimer = nil
-            return
-        }
-        let every = max(1, rotateInterval)
-        rotateTimer = Timer.scheduledTimer(withTimeInterval: every, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                guard !self.panelIsOnScreen else { return }
-                self.rotationIndex += 1
-            }
         }
     }
 
@@ -462,21 +395,27 @@ final class Store {
         let before = settings
         var after = settings
         change(&after)
-        // A coin taken off the panel takes its menu bar turn with it.
-        after.menuBarCoins = MenuBarOrder.settled(after.menuBarCoins, panel: after.coins)
+        // A coin taken off the panel takes its menu bar place with it, and a
+        // reordering of the panel is a reordering of the menu bar.
+        after.menuBarCoins = CoinOrder.settled(after.menuBarCoins, panel: after.coins)
         guard after != before else { return }
+        settings = after
+        after.save()
 
-        let reread = after.coins != before.coins
+        // Reordering is not a new set of coins: nothing has to be read again.
+        let reread = Set(after.coins) != Set(before.coins)
         let reconnect = after.source != before.source
             || after.proxyMode != before.proxyMode
             || after.proxyAddress != before.proxyAddress
         let reschedule = after.interval != before.interval
-        let rerotate = after.menuBarCoins != before.menuBarCoins
-            || after.rotateInterval != before.rotateInterval
         let needRate = after.currency == .cny && rate == nil
 
-        settings = after
-        after.save()
+        // A reordering is not a reason to wait for the next read: the prices
+        // in hand are put in the new order now, so the panel moves when the
+        // coin does.
+        if after.coins != before.coins {
+            quotes = after.coins.compactMap { coin in quotes.first { $0.coin == coin } }
+        }
 
         if reconnect {
             session = ProxySettings(mode: after.proxyMode, address: after.proxyAddress).session()
@@ -489,7 +428,6 @@ final class Store {
             if panelIsOnScreen { loadLines(force: true) }
         }
         if reschedule { schedule() }
-        if rerotate { scheduleRotation() }
         if needRate { Task { await loadRate() } }
         if reread || reconnect { refresh() }
     }

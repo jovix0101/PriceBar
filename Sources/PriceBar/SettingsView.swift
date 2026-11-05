@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var addressLoaded = false
     @State private var addressCommit: Task<Void, Never>?
     @FocusState private var addressFocused: Bool
+    /// The coin being dragged, while it is being dragged.
+    @State private var dragging: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -76,30 +78,8 @@ struct SettingsView: View {
             }
 
             group("菜单栏") {
-                row("轮播币种") {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 62), spacing: 6)],
-                        spacing: 6
-                    ) {
-                        ForEach(store.coins, id: \.self) { coin in
-                            chip(coin)
-                        }
-                    }
-                    .frame(width: 202)
-                }
-                row("切换间隔") {
-                    Picker("", selection: Binding(
-                        get: { store.rotateInterval },
-                        set: { store.rotateInterval = $0 }
-                    )) {
-                        Text("3 秒").tag(3.0)
-                        Text("5 秒").tag(5.0)
-                        Text("10 秒").tag(10.0)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 202)
-                    .disabled(store.menuBarCoins.count < 2)
+                row("显示币种", alignment: .top) {
+                    coinList
                 }
                 row("文字颜色") {
                     Picker("", selection: Binding(
@@ -114,22 +94,25 @@ struct SettingsView: View {
                     .labelsHidden()
                     .frame(width: 202)
                 }
-                row("预览") {
-                    preview
-                }
+                // Full width, not the control column: three coins do not fit
+                // in 202 points, and a preview shrunk to fit says nothing
+                // about how the colours read.
+                preview
+                    .padding(.vertical, 7)
             } note: {
                 if store.menuBarCoins.isEmpty {
                     noteText("没勾选时显示面板里的第一个币种。", color: .orange)
-                } else if store.menuBarCoins.count < 2 {
-                    noteText("勾选两个以上币种，菜单栏才开始轮播。")
+                } else if store.menuBarCoins.count > 1 {
+                    noteText("勾选的币种并排显示，从左到右就是这个顺序。")
                 } else {
-                    noteText("按面板里的顺序轮播，打开面板时暂停。")
+                    noteText("勾选的币种显示在菜单栏。")
                 }
+                noteText("拖动左边的把手可以调顺序，这个顺序也是面板里的顺序。")
                 switch store.menuBarTint {
                 case .automatic:
-                    noteText("自动：菜单栏按壁纸明暗自己着色，图标跟着系统变。")
+                    noteText("自动：跟着菜单栏自己的颜色走，换壁纸、切深浅色都能看清。")
                 case .change:
-                    noteText("随涨跌：跟着上面「涨跌颜色」走，和面板里的百分比同一个色。")
+                    noteText("随涨跌：每个币种按自己的涨跌着色，和面板里的百分比同一个颜色。")
                     noteText("涨跌幅正好为 0 时没有方向，交回系统着色。")
                 case .dark, .light:
                     noteText("固定用\(store.menuBarTint.label)，不随下次换壁纸变化。")
@@ -247,56 +230,76 @@ struct SettingsView: View {
 
     // MARK: - Pieces
 
-    /// One coin on the menu bar's list: ticked, it takes a turn there.
-    private func chip(_ coin: String) -> some View {
-        let on = store.isOnMenuBar(coin)
-        return Button {
-            store.toggleMenuBar(coin)
-        } label: {
-            HStack(spacing: 3) {
-                if on {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
-                }
-                Text(coin)
-                    .font(.system(size: 11, weight: .medium))
+    /// Every coin the panel lists, in the order it lists them, each with its
+    /// place in the menu bar ticked. One list for both places: a coin dragged
+    /// up here goes up there too.
+    private var coinList: some View {
+        VStack(spacing: 1) {
+            ForEach(store.coins, id: \.self) { coin in
+                coinRow(coin)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 5)
-            .background(
-                on ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
-                in: .capsule
-            )
-            .foregroundStyle(on ? Color.accentColor : Color.secondary)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("菜单栏轮播 \(coin)")
-        .accessibilityValue(on ? "已选" : "未选")
+        .frame(width: 202)
     }
 
-    /// The menu bar label itself, drawn by the same code the menu bar uses,
-    /// turning at the interval chosen above: reading the numbers cannot tell
-    /// you whether three seconds is too fast.
-    private var preview: some View {
-        // The menu bar puts its own gap between the image and the title; here
-        // the two are separate views, so the gap has to be asked for.
-        HStack(spacing: 4) {
-            if let image = MenuBarPrice.image(for: store) {
-                Image(nsImage: image)
-                    .renderingMode(MenuBarPrice.tint(for: store) == nil ? .template : .original)
-                    .foregroundStyle(.primary)
-                // The change is a title in the menu bar, coloured by direction
-                // alone, so it is shown beside the image rather than in it.
-                Text(AttributedString(MenuBarPrice.changeTitle(for: store)))
-            } else {
-                Text("—")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+    private func coinRow(_ coin: String) -> some View {
+        let on = store.isOnMenuBar(coin)
+        return HStack(spacing: 6) {
+            // A handle, not the whole row: the row has a checkbox on it, and
+            // a drag that starts there would fight the click.
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+            Text(coin)
+                .font(.system(size: 12, weight: .medium))
+            Spacer(minLength: 4)
+            Button {
+                store.toggleMenuBar(coin)
+            } label: {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(on ? Color.accentColor : Color.secondary.opacity(0.55))
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(coin) 显示在菜单栏")
+            .accessibilityValue(on ? "已选" : "未选")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(backdrop, in: .rect(cornerRadius: 6))
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .background(
+            dragging == coin ? Color.secondary.opacity(0.14) : .clear,
+            in: .rect(cornerRadius: 5)
+        )
+        .contentShape(Rectangle())
+        .onDrag {
+            dragging = coin
+            return NSItemProvider(object: coin as NSString)
+        } preview: {
+            Text(coin)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.regularMaterial, in: .rect(cornerRadius: 5))
+        }
+        .onDrop(
+            of: [.text],
+            delegate: CoinDrop(coin: coin, dragging: $dragging) { moved, onto in
+                store.moveCoin(moved, onto: onto)
+            }
+        )
+    }
+
+    /// The menu bar label, set the way the menu bar sets it: reading a preview
+    /// of one coin cannot tell you whether three fit.
+    private var preview: some View {
+        Text(AttributedString(MenuBarPrice.title(for: store)))
+            .lineLimit(1)
+            .minimumScaleFactor(0.45)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(backdrop, in: .rect(cornerRadius: 6))
     }
 
     /// The swatch behind the preview. A label drawn in a colour of its own
@@ -369,8 +372,12 @@ struct SettingsView: View {
 
     /// A labelled row: the name on the left, the control against the right
     /// edge, both on the same line.
-    private func row(_ label: String, @ViewBuilder control: () -> some View) -> some View {
-        HStack(spacing: 10) {
+    private func row(
+        _ label: String,
+        alignment: VerticalAlignment = .center,
+        @ViewBuilder control: () -> some View
+    ) -> some View {
+        HStack(alignment: alignment, spacing: 10) {
             Text(label)
                 .font(.system(size: 13))
             Spacer(minLength: 8)
@@ -378,6 +385,28 @@ struct SettingsView: View {
         }
         .padding(.vertical, 7)
         .frame(minHeight: 32)
+    }
+}
+
+/// Puts the dragged coin in front of the row the pointer is over, as it goes:
+/// the list rearranges under the hand rather than after the drop.
+private struct CoinDrop: DropDelegate {
+    let coin: String
+    @Binding var dragging: String?
+    let move: (String, String) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != coin else { return }
+        move(dragging, coin)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }
 

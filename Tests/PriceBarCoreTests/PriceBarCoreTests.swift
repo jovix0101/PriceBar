@@ -170,7 +170,6 @@ struct SettingsTests {
         let settings = AppSettings()
         #expect(settings.coins == ["BTC", "ETH"])
         #expect(settings.menuBarCoins == ["BTC"])
-        #expect(settings.rotateInterval == 5)
         #expect(settings.source == .binance)
         #expect(settings.proxyMode == .direct)
         #expect(settings.currency == .usd)
@@ -512,27 +511,57 @@ struct ProxySettingsTests {
     }
 }
 
-@Suite("菜单栏的轮播名单")
-struct MenuBarOrderTests {
+@Suite("菜单栏的币种顺序")
+struct CoinOrderTests {
     @Test("勾选时按面板顺序，不是按点击顺序")
     func addingKeepsPanelOrder() {
-        #expect(MenuBarOrder.toggling("ETH", panel: ["BTC", "ETH", "SOL"], menuBar: ["SOL"])
+        #expect(CoinOrder.toggling("ETH", panel: ["BTC", "ETH", "SOL"], menuBar: ["SOL"])
                 == ["ETH", "SOL"])
-        #expect(MenuBarOrder.toggling("ETH", panel: ["BTC", "ETH", "SOL"], menuBar: [])
+        #expect(CoinOrder.toggling("ETH", panel: ["BTC", "ETH", "SOL"], menuBar: [])
                 == ["ETH"])
     }
 
     @Test("再点一次就取消")
     func togglingTwiceRemoves() {
-        #expect(MenuBarOrder.toggling("BTC", panel: ["BTC", "ETH"], menuBar: ["BTC", "ETH"])
+        #expect(CoinOrder.toggling("BTC", panel: ["BTC", "ETH"], menuBar: ["BTC", "ETH"])
                 == ["ETH"])
     }
 
-    @Test("删掉币种时，菜单栏名单跟着收拾")
+    @Test("删掉币种时，菜单栏名单跟着收拾，并跟上面板的新顺序")
     func settledFollowsThePanel() {
-        #expect(MenuBarOrder.settled(["BTC", "SOL"], panel: ["BTC", "ETH"]) == ["BTC"])
+        #expect(CoinOrder.settled(["BTC", "SOL"], panel: ["BTC", "ETH"]) == ["BTC"])
         // 一个都不剩就是空：菜单栏回落到面板第一个，但名单如实是空的。
-        #expect(MenuBarOrder.settled(["SOL"], panel: ["BTC", "ETH"]) == [])
+        #expect(CoinOrder.settled(["SOL"], panel: ["BTC", "ETH"]) == [])
+        // 面板换了顺序，勾选的那几个也跟着换。
+        #expect(CoinOrder.settled(["BTC", "ETH"], panel: ["ETH", "SOL", "BTC"])
+                == ["ETH", "BTC"])
+    }
+
+    @Test("往下拖落在目标那一行之后，往上拖落在它之前")
+    func draggingLandsOnTheTarget() {
+        // 往下拖：BTC 压到 ETH 上，就换到 ETH 原来的位置。
+        #expect(CoinOrder.moving("BTC", onto: "ETH", in: ["BTC", "ETH", "SOL"])
+                == ["ETH", "BTC", "SOL"])
+        #expect(CoinOrder.moving("BTC", onto: "SOL", in: ["BTC", "ETH", "SOL"])
+                == ["ETH", "SOL", "BTC"])
+        // 往上拖：SOL 压到 BTC 上，落到 BTC 之前。
+        #expect(CoinOrder.moving("SOL", onto: "BTC", in: ["BTC", "ETH", "SOL"])
+                == ["SOL", "BTC", "ETH"])
+    }
+
+    @Test("只有两个币种时也能换位置")
+    func twoCoinsSwap() {
+        // 「永远插在目标之前」的写法在这里原地不动，两个币种就再也调不过来。
+        #expect(CoinOrder.moving("BTC", onto: "ETH", in: ["BTC", "ETH"]) == ["ETH", "BTC"])
+        #expect(CoinOrder.moving("ETH", onto: "BTC", in: ["BTC", "ETH"]) == ["ETH", "BTC"])
+    }
+
+    @Test("拖到自己身上、或拖到不存在的币上，名单不动")
+    func draggingNowhereKeepsTheList() {
+        let coins = ["BTC", "ETH", "SOL"]
+        #expect(CoinOrder.moving("BTC", onto: "BTC", in: coins) == coins)
+        #expect(CoinOrder.moving("BTC", onto: "DOGE", in: coins) == coins)
+        #expect(CoinOrder.moving("DOGE", onto: "BTC", in: coins) == coins)
     }
 }
 

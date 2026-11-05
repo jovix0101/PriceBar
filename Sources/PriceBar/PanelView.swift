@@ -199,7 +199,7 @@ private struct PriceRow: View {
         .accessibilityLabel(accessibilityText)
         .contextMenu {
             Button("\(quote.coin) 的提醒…") { showingRules = true }
-            Button(store.isOnMenuBar(quote.coin) ? "从菜单栏移除" : "在菜单栏轮播") {
+            Button(store.isOnMenuBar(quote.coin) ? "从菜单栏移除" : "显示在菜单栏") {
                 store.toggleMenuBar(quote.coin)
             }
             Divider()

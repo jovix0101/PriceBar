@@ -73,12 +73,9 @@ public enum MenuBarTint: String, Codable, CaseIterable, Sendable {
 /// Everything the app remembers between launches.
 public struct AppSettings: Codable, Equatable, Sendable {
     public var coins: [String] = ["BTC", "ETH"]
-    /// The coins the menu bar shows, in panel order. More than one and they
-    /// take turns there; one and it stays put.
+    /// The coins the menu bar shows, side by side, in the order the panel
+    /// lists them.
     public var menuBarCoins: [String] = ["BTC"]
-    /// How long each coin stays in the menu bar before the next takes its
-    /// place, in seconds.
-    public var rotateInterval: Double = 5
     public var currency: Currency = .usd
     /// How often the prices are read, in seconds.
     public var interval: Double = 10
@@ -96,7 +93,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case coins, menuBarCoins, rotateInterval, currency, interval, changeColors
+        case coins, menuBarCoins, currency, interval, changeColors
         case menuBarTint
         case source, proxyMode, proxyAddress, rules
         /// Written by versions that had one coin on the menu bar.
@@ -107,7 +104,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(coins, forKey: .coins)
         try container.encode(menuBarCoins, forKey: .menuBarCoins)
-        try container.encode(rotateInterval, forKey: .rotateInterval)
         try container.encode(currency, forKey: .currency)
         try container.encode(interval, forKey: .interval)
         try container.encode(changeColors, forKey: .changeColors)
@@ -133,16 +129,17 @@ public struct AppSettings: Codable, Equatable, Sendable {
         source = (try? container.decode(MarketSource.self, forKey: .source)) ?? defaults.source
         proxyMode = (try? container.decode(ProxyMode.self, forKey: .proxyMode)) ?? defaults.proxyMode
         proxyAddress = (try? container.decode(String.self, forKey: .proxyAddress)) ?? defaults.proxyAddress
-        rotateInterval = (try? container.decode(Double.self, forKey: .rotateInterval)) ?? defaults.rotateInterval
 
         // The menu bar coins: an older file names one of them `primary`, and
-        // a coin taken off the panel takes its menu bar turn with it.
+        // a coin taken off the panel takes its menu bar place with it. An
+        // older file also kept them in the order they were ticked, so they
+        // are put in panel order here.
         let stored = try? container.decode([String].self, forKey: .menuBarCoins)
         let legacy = try? container.decode(String.self, forKey: .primary)
         // An empty list is a real answer ("show the first price"), so it is
         // kept as it is; only coins no longer on the panel are dropped.
         let wanted = stored ?? legacy.map { [$0] } ?? defaults.menuBarCoins
-        menuBarCoins = wanted.filter { coins.contains($0) }
+        menuBarCoins = CoinOrder.settled(wanted, panel: coins)
         // A rule the app cannot read goes; the others stay.
         if let decoded = try? container.decode([Lenient<Rule>].self, forKey: .rules) {
             rules = decoded.compactMap(\.value)
