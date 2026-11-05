@@ -193,12 +193,26 @@ private struct PriceRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
+        .background(
+            hovering ? Color.secondary.opacity(0.09) : .clear,
+            in: .rect(cornerRadius: 6)
+        )
         .contentShape(.rect)
         .onHover { hovering = $0 }
+        // The whole row is the link: the numbers are what a reader points at,
+        // and asking them to find a small icon for it would be a worse trade
+        // than giving up a click on the row. The bell keeps its own click —
+        // it is a button, and buttons answer before the row does.
+        .onTapGesture { store.openContract(for: quote.coin) }
+        .help("在 \(store.source.label) 打开 \(quote.coin) 的合约行情")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
+        .accessibilityHint("打开 \(store.source.label) 的合约行情页")
         .contextMenu {
             Button("\(quote.coin) 的提醒…") { showingRules = true }
+            Button("在 \(store.source.label) 打开合约行情") {
+                store.openContract(for: quote.coin)
+            }
             Button(store.isOnMenuBar(quote.coin) ? "从菜单栏移除" : "显示在菜单栏") {
                 store.toggleMenuBar(quote.coin)
             }

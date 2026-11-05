@@ -47,6 +47,28 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// The exchange's own page for this coin's perpetual contract, for a
+    /// reader who wants to go and look at the market the number came from.
+    ///
+    /// The quote in the panel is spot, the page is the contract: the two sit
+    /// a fraction apart, which is how the exchange itself shows them side by
+    /// side. Where the exchange has a Chinese site it is used, because the
+    /// app does.
+    ///
+    /// Only the shape lives here, so it can be checked without a browser.
+    public func contractPage(for coin: String) -> URL? {
+        let upper = coin.uppercased()
+        let lower = coin.lowercased()
+        let address: String
+        switch self {
+        case .binance: address = "https://www.binance.com/zh-CN/futures/\(upper)USDT"
+        case .gate: address = "https://www.gate.io/zh/futures/USDT/\(upper)_USDT"
+        case .okx: address = "https://www.okx.com/zh-hans/trade-swap/\(lower)-usdt-swap"
+        case .bybit: address = "https://www.bybit.com/trade/usdt/\(upper)USDT"
+        }
+        return URL(string: address)
+    }
+
     /// The hosts serving this exchange, tried in order. Binance keeps a host
     /// for public data alone, which some networks reach when they refuse the
     /// trading host.

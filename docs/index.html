@@ -7,7 +7,7 @@
 <meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种的价格钉在菜单栏，点开是面板，有 24 小时行情线与涨跌幅；价格越过设定的线就发系统通知。开源、免费。">
 <link rel="canonical" href="https://jovix0101.github.io/pricebar/">
 <meta name="theme-color" content="#f8f8f7">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2316181c'/%3E%3Cpath d='M12 40l10-9 8 5 9-13 13-6' fill='none' stroke='%2334c759' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2316181c'/%3E%3Cpath d='M12 40l10-9 8 5 9-13 13-6' fill='none' stroke='%232ebd85' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PriceBar">
@@ -35,7 +35,7 @@
   "url": "https://jovix0101.github.io/pricebar/",
   "downloadUrl": "https://github.com/jovix0101/pricebar/releases/latest",
   "screenshot": "https://jovix0101.github.io/pricebar/panel.png",
-  "softwareVersion": "0.2.0",
+  "softwareVersion": "0.3.0",
   "license": "https://opensource.org/license/mit",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -53,8 +53,9 @@
     --line: #e2e4e7;
     --paper: #f8f8f7;
     --card: #ffffff;
-    --up: #1f9d4d;
-    --down: #d33a2c;
+    /* app 与页面用同一对涨跌色，取自币安 */
+    --up: #2ebd85;
+    --down: #f6465d;
     --accent: #0a63d6;
     --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
     --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
@@ -166,8 +167,8 @@
   .label .sym { font-size: 10px; color: #e4e5e8; }
 
   /* 涨跌幅永远是红绿，与文字颜色设置无关，所以示意图也这样画 */
-  .label .chg { font-size: 10px; color: #34c759; }
-  .label .down { color: #ff6961; }
+  .label .chg { font-size: 10px; color: var(--up); }
+  .label .down { color: var(--down); }
 
   .cap {
     margin: 12px 0 0;
@@ -270,7 +271,7 @@
     <div class="wordmark">
       <svg width="17" height="17" viewBox="0 0 64 64" aria-hidden="true">
         <rect width="64" height="64" rx="14" fill="#16181c"/>
-        <path d="M12 40l10-9 8 5 9-13 13-6" fill="none" stroke="#34c759"
+        <path d="M12 40l10-9 8 5 9-13 13-6" fill="none" stroke="#2ebd85"
               stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       PriceBar

@@ -51,7 +51,7 @@ enum MenuBarPrice {
         case .dark: return .black
         case .light: return .white
         case .change:
-            return colors.barColour(for: change)
+            return colors.nsColour(for: change)
         }
     }
 
@@ -62,7 +62,7 @@ enum MenuBarPrice {
     /// in the label that carries meaning, and a menu bar that coloured it
     /// black would lose that reading for the sake of consistency.
     static func changeColour(_ change: Double, colors: ChangeColors) -> NSColor {
-        colors.barColour(for: change) ?? .secondaryLabelColor
+        colors.nsColour(for: change) ?? .secondaryLabelColor
     }
 
     /// The whole label: every coin's block, each padded to one width.

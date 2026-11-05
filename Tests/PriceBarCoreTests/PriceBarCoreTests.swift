@@ -369,6 +369,20 @@ struct RuleTextTests {
 
 @Suite("四家交易所的解析")
 struct SourceParsingTests {
+    @Test("每家都能给出这个币的合约行情页")
+    func contractPages() {
+        #expect(MarketSource.binance.contractPage(for: "BTC")?.absoluteString
+            == "https://www.binance.com/zh-CN/futures/BTCUSDT")
+        #expect(MarketSource.gate.contractPage(for: "eth")?.absoluteString
+            == "https://www.gate.io/zh/futures/USDT/ETH_USDT")
+        // OKX 的路径是小写交易对再加一个 -swap，写错一个字母就是 404。
+        #expect(MarketSource.okx.contractPage(for: "Sol")?.absoluteString
+            == "https://www.okx.com/zh-hans/trade-swap/sol-usdt-swap")
+        #expect(MarketSource.bybit.contractPage(for: "BTC")?.absoluteString
+            == "https://www.bybit.com/trade/usdt/BTCUSDT")
+    }
+
+
     @Test("Gate 的字段名与交易对写法")
     func readsAGateTicker() throws {
         let json = """

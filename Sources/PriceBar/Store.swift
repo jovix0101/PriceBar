@@ -181,6 +181,14 @@ final class Store {
         coins = CoinOrder.moving(coin, onto: target, in: coins)
     }
 
+    /// Opens the exchange's own page for this coin, in the browser. On the
+    /// source the prices come from, so the page shows the market the number
+    /// beside it was read from rather than another exchange's.
+    func openContract(for coin: String) {
+        guard let page = source.contractPage(for: coin) else { return }
+        NSWorkspace.shared.open(page)
+    }
+
     /// The rate to show a price in the chosen currency, or nil while the rate
     /// the user asked for has not arrived.
     var displayRate: Double? {
