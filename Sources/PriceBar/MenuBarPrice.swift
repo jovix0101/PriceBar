@@ -51,8 +51,7 @@ enum MenuBarPrice {
         case .dark: return .black
         case .light: return .white
         case .change:
-            guard let green = colors.isGreen(change) else { return nil }
-            return green ? .systemGreen : .systemRed
+            return colors.barColour(for: change)
         }
     }
 
@@ -63,8 +62,7 @@ enum MenuBarPrice {
     /// in the label that carries meaning, and a menu bar that coloured it
     /// black would lose that reading for the sake of consistency.
     static func changeColour(_ change: Double, colors: ChangeColors) -> NSColor {
-        guard let green = colors.isGreen(change) else { return .secondaryLabelColor }
-        return green ? .systemGreen : .systemRed
+        colors.barColour(for: change) ?? .secondaryLabelColor
     }
 
     /// The whole label: every coin's block, each padded to one width.
