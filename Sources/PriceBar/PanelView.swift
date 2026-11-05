@@ -19,7 +19,33 @@ struct PanelView: View {
         .padding(.vertical, 6)
     }
 
+    /// The prices, in a list that stops growing at the row limit and scrolls
+    /// inside it instead. A panel that grew with every coin would sooner or
+    /// later be taller than the screen, and its footer would be out of reach.
     private var priceList: some View {
+        Group {
+            if store.quotes.count > store.panelRows {
+                ScrollView(.vertical) {
+                    rows
+                }
+                .frame(height: Self.height(for: store.panelRows))
+            } else {
+                rows
+            }
+        }
+    }
+
+    /// One row is 26 pt tall, spacing and all; the rest of the panel is the
+    /// footer, the divider and the padding above and below them. Measured on
+    /// the real panel at one, two, three, six and ten rows.
+    static func height(for rows: Int) -> CGFloat {
+        // Two points short of the rows' own height: the scroll view adds that
+        // much of its own, and a panel that scrolls should be exactly as tall
+        // as the same panel that does not.
+        26 * CGFloat(rows) - 2
+    }
+
+    private var rows: some View {
         VStack(spacing: 2) {
             ForEach(store.quotes) { quote in
                 PriceRow(quote: quote, store: store)

@@ -52,10 +52,24 @@ struct SettingsView: View {
                     .labelsHidden()
                     .frame(width: 202)
                 }
+                row("面板高度") {
+                    Picker("", selection: Binding(
+                        get: { store.panelRows },
+                        set: { store.panelRows = $0 }
+                    )) {
+                        ForEach(Self.rowChoices, id: \.self) { rows in
+                            Text("\(rows) 行").tag(rows)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 202)
+                }
             } note: {
                 noteText(store.currency == .cny && store.rate == nil
                     ? "汇率还没取到，价格暂时显示为 —。"
                     : "汇率用欧洲央行的参考价，每天更新一次。")
+                noteText("币种多过这几个，面板里滚动，不挡住下面的窗口。")
             }
 
             group("行情") {
@@ -230,6 +244,9 @@ struct SettingsView: View {
         .frame(width: 380, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
+
+    /// The row limits a panel can be given, in the order they are offered.
+    private static let rowChoices = [6, 8, 10, 12]
 
     // MARK: - Pieces
 

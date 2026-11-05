@@ -79,6 +79,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var currency: Currency = .usd
     /// How often the prices are read, in seconds.
     public var interval: Double = 10
+    /// How many coins the panel shows before it starts scrolling. It grows
+    /// with the coins otherwise, and a panel taller than the screen is a panel
+    /// whose bottom cannot be reached.
+    public var panelRows: Int = 8
     /// Which color means a rise.
     public var changeColors: ChangeColors = .greenUp
     /// What colour the menu bar writes the price in.
@@ -93,7 +97,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case coins, menuBarCoins, currency, interval, changeColors
+        case coins, menuBarCoins, currency, interval, panelRows, changeColors
         case menuBarTint
         case source, proxyMode, proxyAddress, rules
         /// Written by versions that had one coin on the menu bar.
@@ -106,6 +110,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try container.encode(menuBarCoins, forKey: .menuBarCoins)
         try container.encode(currency, forKey: .currency)
         try container.encode(interval, forKey: .interval)
+        try container.encode(panelRows, forKey: .panelRows)
         try container.encode(changeColors, forKey: .changeColors)
         try container.encode(menuBarTint, forKey: .menuBarTint)
         try container.encode(source, forKey: .source)
@@ -124,6 +129,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         coins = (try? container.decode([String].self, forKey: .coins)) ?? defaults.coins
         currency = (try? container.decode(Currency.self, forKey: .currency)) ?? defaults.currency
         interval = (try? container.decode(Double.self, forKey: .interval)) ?? defaults.interval
+        // A row limit of zero or less would leave the panel with no prices on
+        // it at all, so anything unusable falls back to the default.
+        let rows = (try? container.decode(Int.self, forKey: .panelRows)) ?? defaults.panelRows
+        panelRows = (3...20).contains(rows) ? rows : defaults.panelRows
         changeColors = (try? container.decode(ChangeColors.self, forKey: .changeColors)) ?? defaults.changeColors
         menuBarTint = (try? container.decode(MenuBarTint.self, forKey: .menuBarTint)) ?? defaults.menuBarTint
         source = (try? container.decode(MarketSource.self, forKey: .source)) ?? defaults.source

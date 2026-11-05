@@ -62,6 +62,12 @@ final class Store {
         set { apply { $0.interval = newValue } }
     }
 
+    /// How many coins the panel shows before it starts scrolling.
+    var panelRows: Int {
+        get { settings.panelRows }
+        set { apply { $0.panelRows = newValue } }
+    }
+
     var changeColors: ChangeColors {
         get { settings.changeColors }
         set { apply { $0.changeColors = newValue } }

@@ -177,6 +177,23 @@ struct SettingsTests {
         #expect(settings.rules.isEmpty)
     }
 
+    @Test("面板行数默认八行，写坏的值回落")
+    func panelRowLimit() throws {
+        #expect(AppSettings().panelRows == 8)
+        // A limit of zero would show no prices at all; a limit of a thousand
+        // would put the footer below the screen again.
+        for bad in [0, -5, 2, 999] {
+            let json = #"{"panelRows":\#(bad)}"#
+            let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+            #expect(settings.panelRows == 8)
+        }
+        var chosen = AppSettings()
+        chosen.panelRows = 12
+        let back = try JSONDecoder().decode(
+            AppSettings.self, from: JSONEncoder().encode(chosen))
+        #expect(back.panelRows == 12)
+    }
+
     @Test("JSON 往返")
     func roundTripThroughJSON() throws {
         var settings = AppSettings()

@@ -90,6 +90,7 @@ build.sh                    编译、写 Info.plist、签名、打 dmg
   "menuBarCoins": ["BTC", "ETH"],
   "currency": "USD",
   "interval": 10,
+  "panelRows": 8,
   "source": "binance",
   "proxyMode": "direct",
   "proxyAddress": "",
