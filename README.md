@@ -5,7 +5,7 @@
 
 需要 macOS 14 以上。没有第三方依赖。
 
-**[产品页 →](https://jovix0101.github.io/pricebar/)** ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
+**[产品页 →](https://jovix0101.github.io/pricebar/)**（[English](https://jovix0101.github.io/pricebar/en.html)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
 
 ![面板：每行一个品种，价格、涨跌幅与 24 小时行情线](docs/panel.png)
 
@@ -66,8 +66,8 @@ Sources/PriceBar/           外壳
   LoginItem.swift           开机自启
 Tests/PriceBarCoreTests/    65 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
-Icon/                       应用图标：make-icon.swift 画出 AppIcon.icns
-docs/                       产品页与截图（GitHub Pages）
+Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
+docs/                       产品页（中/英）与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
 ```
 
