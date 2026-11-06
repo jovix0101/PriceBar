@@ -1,5 +1,6 @@
 // 设置截图：点标签、按箭头、左右滑都是同一件事——换一页。
-// 轨道高度跟着当前页走：四页长短差一倍，固定高度会空出一大块。
+// 轨道只占最高那一页的高度，换页时不再改：四页长短差一倍，跟着当前页走的话
+// 下面的标签和箭头会上下跑。
 (function () {
   var boxes = document.querySelectorAll('[data-shots]');
 
@@ -19,7 +20,15 @@
       Array.prototype.forEach.call(tabs, function (tab, i) {
         tab.setAttribute('aria-pressed', i === current ? 'true' : 'false');
       });
-      track.style.height = slides[current].getBoundingClientRect().height + 'px';
+    }
+
+    // 最高的那一页有多高，轨道就多高；短的页在中间，上面下面留白。
+    function fit() {
+      var tallest = 0;
+      Array.prototype.forEach.call(slides, function (slide) {
+        tallest = Math.max(tallest, slide.getBoundingClientRect().height);
+      });
+      if (tallest) track.style.height = tallest + 'px';
     }
 
     Array.prototype.forEach.call(tabs, function (tab, i) {
@@ -44,8 +53,8 @@
       if (Math.abs(dx) > 40) show(current + (dx < 0 ? 1 : -1));
     });
 
-    // 图片解码完、字体加载完、窗口变宽变窄，都会改变那一页的高度
-    var settle = function () { show(current); };
+    // 图片解码完、字体加载完、窗口变宽变窄，都会改变页面的高度
+    var settle = function () { show(current); fit(); };
     window.addEventListener('resize', settle);
     window.addEventListener('load', settle);
     Array.prototype.forEach.call(track.querySelectorAll('img'), function (img) {
@@ -59,5 +68,6 @@
     });
 
     show(0);
+    fit();
   });
 })();

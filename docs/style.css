@@ -152,16 +152,16 @@
 
   .shot-panel { width: 300px; max-width: 100%; }
 
-  /* 设置的四页截在一个位置轮换，高度跟着当前页走 */
+  /* 设置的四页截在一个位置轮换。四页高低不一样，但轨道只占最高那一页的高度：
+     换页时下面的标签和箭头不动，短的那几页居中放着。 */
   .shots { margin-top: 2px; }
   .shots-track { position: relative; }
-  /* 脚本跑起来之前先按最高的一页占住位置，免得内容跳一下 */
+  /* 脚本跑起来之前也按最高的一页占住位置，免得内容跳一下。
+     width 得先定住：只给 height 和 aspect-ratio 时，浏览器会拿高度反推宽度，
+     短的那几页（面板只有 171px 高）就会连图一起缩窄。 */
   .shots-js .shots-track {
-    /* width 得先定住：只给 height 和 aspect-ratio 时，浏览器会拿高度反推宽度，
-       短的那几页（面板只有 171px 高）就会连图一起缩窄。 */
     width: 100%;
     aspect-ratio: 380 / 450;
-    transition: height .28s cubic-bezier(.4, 0, .2, 1);
   }
 
   /* 2× 渲染的截图按 1× 大小显示：Retina 上依然清晰，又不至于占满一屏 */
@@ -180,9 +180,10 @@
   .shot-slide + .shot-slide { margin-top: 18px; }
   .shots-js .shot-slide {
     position: absolute;
-    top: 0;
+    top: 50%;
     left: 0;
     right: 0;
+    transform: translateY(-50%);
     margin-top: 0;
     opacity: 0;
     visibility: hidden;
