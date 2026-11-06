@@ -50,6 +50,7 @@
 </script>
 
 <link rel="stylesheet" href="style.css">
+<script>document.documentElement.className += ' shots-js';</script>
 </head>
 <body>
 
@@ -122,11 +123,47 @@
 
   <section>
     <h2>Settings</h2>
-    <figure>
-      <img class="shot shot-settings" src="settings.png" width="760" height="580" loading="lazy"
-           alt="PriceBar settings, menu bar tab: which instruments to show, drag to reorder, text colour and a preview">
-      <figcaption class="cap">Four tabs. The menu bar tab is where you pick what shows, drag the order, and choose the text colour.</figcaption>
-    </figure>
+    <div class="shots" data-shots>
+      <div class="shots-track">
+        <figure class="shot-slide on">
+          <img src="settings-general.png" width="380" height="344"
+               alt="General tab: currency in USD or CNY, green-or-red change colours, refresh interval from 5 seconds to a minute, and launch at login">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-menubar.png" width="380" height="313"
+               alt="Menu bar tab: which instruments appear in the menu bar, drag the handles to reorder, and text colour set to automatic, dark, light or following the change">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-panel.png" width="380" height="171"
+               alt="Panel tab: how many rows the panel shows before it scrolls, and whether a click opens the contract page">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-source.png" width="380" height="184"
+               alt="Source and proxy tab: pick Binance, Gate, OKX or Bybit, and set the proxy to direct, system or a custom address, with a connection test">
+        </figure>
+      </div>
+      <div class="shots-bar">
+        <button class="shots-arrow" data-step="-1" aria-label="Previous tab">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M7.4 2.6 4.2 6l3.2 3.4" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="shots-tabs">
+          <button class="shots-tab" aria-pressed="true">General</button>
+          <button class="shots-tab" aria-pressed="false">Menu bar</button>
+          <button class="shots-tab" aria-pressed="false">Panel</button>
+          <button class="shots-tab" aria-pressed="false">Source</button>
+        </div>
+        <button class="shots-arrow" data-step="1" aria-label="Next tab">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M4.6 2.6 7.8 6l-3.2 3.4" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="cap">The app's interface is in Chinese for now.</p>
+    </div>
   </section>
 
   <section>
@@ -163,5 +200,6 @@ open /Applications/PriceBar.app</pre>
 
 </div>
 
+<script src="shots.js" defer></script>
 </body>
 </html>

@@ -50,6 +50,7 @@
 </script>
 
 <link rel="stylesheet" href="style.css">
+<script>document.documentElement.className += ' shots-js';</script>
 </head>
 <body>
 
@@ -121,11 +122,46 @@
 
   <section>
     <h2>设置</h2>
-    <figure>
-      <img class="shot shot-settings" src="settings.png" width="760" height="580" loading="lazy"
-           alt="PriceBar 设置的菜单栏页：勾选显示哪些品种、拖动排序、文字颜色与预览">
-      <figcaption class="cap">设置分四页。菜单栏页里勾选显示哪些、拖动排序、挑文字颜色。</figcaption>
-    </figure>
+    <div class="shots" data-shots>
+      <div class="shots-track">
+        <figure class="shot-slide on">
+          <img src="settings-general.png" width="380" height="344"
+               alt="通用页：计价货币选美元或人民币，涨跌颜色可选绿涨红跌或红涨绿跌，刷新间隔 5 秒到 1 分钟，还有登录时自动启动">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-menubar.png" width="380" height="313"
+               alt="菜单栏页：勾选哪几个品种显示在菜单栏，拖左边的把手调顺序，文字颜色可选自动、深色、浅色、随涨跌">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-panel.png" width="380" height="171"
+               alt="面板页：最多显示 6、8、10、12 行或自定义行数，以及点击币种是否打开合约行情">
+        </figure>
+        <figure class="shot-slide">
+          <img src="settings-source.png" width="380" height="184"
+               alt="数据源与代理页：数据源选 Binance、Gate、OKX 或 Bybit，代理可选直连、跟随系统、自定义，并能测一次连接">
+        </figure>
+      </div>
+      <div class="shots-bar">
+        <button class="shots-arrow" data-step="-1" aria-label="上一页">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M7.4 2.6 4.2 6l3.2 3.4" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="shots-tabs">
+          <button class="shots-tab" aria-pressed="true">通用</button>
+          <button class="shots-tab" aria-pressed="false">菜单栏</button>
+          <button class="shots-tab" aria-pressed="false">面板</button>
+          <button class="shots-tab" aria-pressed="false">数据源</button>
+        </div>
+        <button class="shots-arrow" data-step="1" aria-label="下一页">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M4.6 2.6 7.8 6l-3.2 3.4" fill="none" stroke="currentColor"
+                  stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -161,5 +197,6 @@ open /Applications/PriceBar.app</pre>
 
 </div>
 
+<script src="shots.js" defer></script>
 </body>
 </html>
