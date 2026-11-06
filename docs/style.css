@@ -150,11 +150,10 @@
     box-shadow: 0 18px 40px -30px rgba(20,24,30,.45);
   }
 
-  .shot-panel { width: 300px; max-width: 100%; }
+  .shot-panel { width: 100%; max-width: 300px; }
 
   /* 设置的四页截在一个位置轮换。四页高低不一样，但轨道只占最高那一页的高度：
      换页时下面的标签和箭头不动，短的那几页居中放着。 */
-  .shots { margin-top: 2px; }
   .shots-track { position: relative; }
   /* 脚本跑起来之前也按最高的一页占住位置，免得内容跳一下。
      width 得先定住：只给 height 和 aspect-ratio 时，浏览器会拿高度反推宽度，
@@ -165,7 +164,7 @@
   }
 
   /* 2× 渲染的截图按 1× 大小显示：Retina 上依然清晰，又不至于占满一屏 */
-  .shot-slide { margin: 0; max-width: 380px; }
+  .shot-slide { margin: 0; }
   .shot-slide img {
     display: block;
     width: 100%;
@@ -195,7 +194,7 @@
     display: none;
     align-items: center;
     gap: 8px;
-    margin-top: 14px;
+    margin-top: 16px;
   }
   .shots-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
   .shots-arrow, .shots-tab { font: inherit; cursor: pointer; }
@@ -232,20 +231,35 @@
     .shots-js .shot-slide { transition: none; }
   }
 
-  /* 截图与说明并排：一屏看完，不用滚两次 */
-  .pair {
+  /* 功能：截图在左，说明在右。右边是一张表——每行一句标题一句说明，
+     行与行用同一道分隔线串起来，几行都是同样的节奏 */
+  .feature {
     display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 28px;
+    grid-template-columns: 272px 1fr;
+    gap: 32px;
     align-items: start;
   }
 
-  .points { margin: 0; padding: 0; list-style: none; }
-  .points li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
-  .points li:first-child { padding-top: 0; }
-  .points li:last-child { border-bottom: 0; }
-  .points b { display: block; font-weight: 600; }
-  .points span { color: var(--body); font-size: 14px; line-height: 1.65; }
+  .spec { margin: 0; padding: 0; list-style: none; }
+  .spec li { padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .spec li:first-child { padding-top: 0; }
+  .spec li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .spec b { display: block; font-weight: 600; font-size: 15px; }
+  .spec span { display: block; margin-top: 1px; color: var(--body); font-size: 13.5px; line-height: 1.6; }
+
+  /* 设置那一块只有一张窄窗口：图、标签栏、说明都对齐左边那条线，
+     跟页面上其它标题、正文同一个起点 */
+  .shots { max-width: 380px; }
+
+  /* 安装那一段的正文：行距松一点，跟下面的小标题分开 */
+  .body-text { margin: 0 0 6px; color: var(--body); }
+
+  /* 「或者自己编译」这类小标题：比正文低一档，把下一段分开 */
+  .sub {
+    margin: 22px 0 10px;
+    font-size: 14px;
+    color: var(--muted);
+  }
 
   code {
     font-family: var(--mono);
@@ -286,7 +300,8 @@
     section { padding-top: 52px; }
     .menubar { justify-content: flex-start; gap: 3px 12px; padding: 8px 12px; }
     .label { font-size: 12px; }
-    .pair { grid-template-columns: 1fr; gap: 22px; }
+    .feature { grid-template-columns: 1fr; gap: 20px; }
+    .feature figure { max-width: 300px; }
   }
 
   @media (max-width: 400px) {

@@ -105,13 +105,14 @@
   </div>
 
   <section>
-    <div class="pair">
+    <h2>The panel</h2>
+    <div class="feature">
       <figure>
         <img class="shot shot-panel" src="panel.png" srcset="panel@2x.png 2x" width="300" height="169" loading="lazy"
              alt="PriceBar panel: BTC and ETH spot, gold XAU and Apple AAPL perpetuals, each with a 24-hour chart, dollar price and change">
         <figcaption class="cap">Click the icon and each instrument gets a row.</figcaption>
       </figure>
-      <ul class="points">
+      <ul class="spec">
         <li><b>Crypto, gold, silver, US stocks</b><span>Crypto at spot price. Gold and US stocks come from exchange perpetuals. All of them in one panel.</span></li>
         <li><b>One field to add a symbol</b><span>Type a ticker. BTC adds spot by default; tick the perpetual as well if you want both.</span></li>
         <li><b>Price alerts</b><span>One notification when the price crosses your line. Then it waits instead of nagging.</span></li>
@@ -168,16 +169,14 @@
 
   <section>
     <h2>Install</h2>
-    <p style="margin:0 0 16px;color:var(--body)">
+    <p class="body-text">
       Open <code>PriceBar.dmg</code> and drag <code>PriceBar.app</code> into Applications.
       The download is about 2 MB and the installed app takes 2.8 MB. It is a single app with no
       third-party dependencies and no extra background process. It is not notarized, so if macOS blocks
       the first launch, right-click the app and choose Open. The interface is in English, with Chinese
       one switch away.
     </p>
-    <p style="margin:0 0 12px;color:var(--body)">
-      Or build it yourself:
-    </p>
+    <p class="sub">Or build it yourself:</p>
 <pre><span class="c"># clone</span>
 git clone https://github.com/jovix0101/pricebar.git
 cd pricebar
