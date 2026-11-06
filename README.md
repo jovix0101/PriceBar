@@ -3,7 +3,7 @@
 一个 macOS 菜单栏价格工具：加密货币，以及黄金、白银、美股的交易所永续合约，价格钉在菜单栏，
 点开是面板（24 小时行情线、涨跌幅），价格或涨跌幅越过你设的线就发一条系统通知。
 
-需要 macOS 14 以上。没有第三方依赖。
+需要 macOS 14 以上。安装包 2 MB，装好占 2.8 MB，没有第三方依赖。
 
 **[产品页 →](https://jovix0101.github.io/pricebar/)**（[English](https://jovix0101.github.io/pricebar/en.html)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
 
