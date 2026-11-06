@@ -1,4 +1,4 @@
-// Draws the social preview cards (docs/card.png, docs/card-en.png).
+// Draws the social preview cards (docs/card.png, docs/card-zh.png).
 //
 //   swift Icon/make-card.swift
 //
@@ -54,7 +54,7 @@ func draw(_ pieces: [(String, NSFont, NSColor)], at x: CGFloat) {
 }
 
 @MainActor
-func drawCard(headline: String, subline: String, to name: String) {
+func drawCard(headline: String, subline: String, panel: String, to name: String) {
     let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil, pixelsWide: Int(W), pixelsHigh: Int(H),
         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -126,9 +126,9 @@ func drawCard(headline: String, subline: String, to name: String) {
     )
 
     // The real panel screenshot, on a white card with a soft shadow.
-    let shot = docs.appendingPathComponent("panel.png")
-    if let panel = NSImage(contentsOf: shot) {
-        let box = NSRect(x: 80, y: 60, width: 280, height: 117)
+    let shot = docs.appendingPathComponent(panel)
+    if let image = NSImage(contentsOf: shot) {
+        let box = NSRect(x: 80, y: 60, width: 280, height: 158)
         let shadow = NSShadow()
         shadow.shadowColor = NSColor(white: 0, alpha: 0.12)
         shadow.shadowBlurRadius = 18
@@ -138,7 +138,7 @@ func drawCard(headline: String, subline: String, to name: String) {
         NSColor.white.setFill()
         NSBezierPath(roundedRect: box.insetBy(dx: -12, dy: -10), xRadius: 12, yRadius: 12).fill()
         NSGraphicsContext.restoreGraphicsState()
-        panel.draw(in: box, from: .zero, operation: .sourceOver, fraction: 1)
+        image.draw(in: box, from: .zero, operation: .sourceOver, fraction: 1)
     }
 
     NSGraphicsContext.restoreGraphicsState()
@@ -148,6 +148,15 @@ func drawCard(headline: String, subline: String, to name: String) {
 }
 
 MainActor.assumeIsolated {
-    drawCard(headline: "价格，就在菜单栏里。", subline: "币、黄金、白银、美股 · 24 小时走势 · 价格提醒", to: "card.png")
-    drawCard(headline: "Prices in the menu bar.", subline: "Crypto, gold, silver, US stocks · 24h chart · alerts", to: "card-en.png")
+    // English keeps the plain name: it is the card on the page at /.
+    drawCard(
+        headline: "Prices in the menu bar.",
+        subline: "Crypto, gold, silver, US stocks · 24h chart · alerts",
+        panel: "panel.png", to: "card.png"
+    )
+    drawCard(
+        headline: "价格，就在菜单栏里。",
+        subline: "币、黄金、白银、美股 · 24 小时走势 · 价格提醒",
+        panel: "panel-zh.png", to: "card-zh.png"
+    )
 }

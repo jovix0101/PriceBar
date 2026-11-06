@@ -73,19 +73,31 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
     ///
     /// The quote in the panel is spot, the page is the contract: the two sit
     /// a fraction apart, which is how the exchange itself shows them side by
-    /// side. Where the exchange has a Chinese site it is used, because the
-    /// app does.
+    /// side. Where the exchange has a site in the language the app is
+    /// showing, it is that one: a page that answers in English reads as a
+    /// different product from the one beside it.
     ///
     /// Only the shape lives here, so it can be checked without a browser.
-    public func contractPage(for coin: String) -> URL? {
+    public func contractPage(for coin: String, language: Language = .english) -> URL? {
         let upper = coin.uppercased()
         let lower = coin.lowercased()
+        let chinese = language == .chinese
         let address: String
         switch self {
-        case .binance: address = "https://www.binance.com/zh-CN/futures/\(upper)USDT"
-        case .gate: address = "https://www.gate.io/zh/futures/USDT/\(upper)_USDT"
-        case .okx: address = "https://www.okx.com/zh-hans/trade-swap/\(lower)-usdt-swap"
-        case .bybit: address = "https://www.bybit.com/trade/usdt/\(upper)USDT"
+        case .binance:
+            address = chinese
+                ? "https://www.binance.com/zh-CN/futures/\(upper)USDT"
+                : "https://www.binance.com/en/futures/\(upper)USDT"
+        case .gate:
+            address = chinese
+                ? "https://www.gate.io/zh/futures/USDT/\(upper)_USDT"
+                : "https://www.gate.io/futures/USDT/\(upper)_USDT"
+        case .okx:
+            address = chinese
+                ? "https://www.okx.com/zh-hans/trade-swap/\(lower)-usdt-swap"
+                : "https://www.okx.com/trade-swap/\(lower)-usdt-swap"
+        case .bybit:
+            address = "https://www.bybit.com/trade/usdt/\(upper)USDT"
         }
         return URL(string: address)
     }

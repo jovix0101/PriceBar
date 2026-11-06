@@ -33,11 +33,12 @@ struct AddCoinView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("添加")
+        let strings = store.strings
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(strings.addTitle)
                 .font(.headline)
 
-            TextField("代号，例如 SOL、XAU、AAPL", text: $text)
+            TextField(strings.codePlaceholder, text: $text)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .disabled(checking)
@@ -54,12 +55,12 @@ struct AddCoinView: View {
                         choiceRow(choice)
                     }
                 }
-                Text("合约价跟着现货走，平时会差一点。")
+                Text(strings.contractTracksSpot)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(problem ?? "币填 BTC、ETH；黄金 XAU、白银 XAG；美股填代码，如 AAPL、TSLA。")
+                Text(problem ?? strings.codeHint)
                     .font(.caption)
                     .foregroundStyle(problem == nil ? Color.secondary : Color.red)
                     .fixedSize(horizontal: false, vertical: true)
@@ -71,9 +72,9 @@ struct AddCoinView: View {
                         .controlSize(.small)
                 }
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }
+                Button(strings.cancelButton, role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("添加") { submit() }
+                Button(strings.addTitle) { submit() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canSubmit)
             }
@@ -86,6 +87,7 @@ struct AddCoinView: View {
     /// One market: a box to tick when it can be added, or the reason it
     /// cannot, greyed out.
     private func choiceRow(_ choice: CoinValidation.Choice) -> some View {
+        let strings = store.strings
         let instrument = choice.instrument
         let enabled = choice.state == .available
         return Toggle(isOn: Binding(
@@ -95,10 +97,10 @@ struct AddCoinView: View {
             }
         )) {
             HStack(spacing: 6) {
-                Text(instrument.market == .spot ? "现货" : "永续合约")
+                Text(strings.label(instrument.market))
                 // What sets the two apart. On Binance both are named ETHUSDT,
                 // so the name would say nothing.
-                Text(instrument.market == .spot ? "\(instrument.code)/USDT" : "USDT 结算 · 不到期")
+                Text(instrument.market == .spot ? "\(instrument.code)/USDT" : strings.settledNoExpiry)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
@@ -106,11 +108,11 @@ struct AddCoinView: View {
                 case .available:
                     EmptyView()
                 case .added:
-                    Text("已添加")
+                    Text(strings.addedLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 case .unreachable:
-                    Text("连不上")
+                    Text(strings.unreachableShort)
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
@@ -122,11 +124,16 @@ struct AddCoinView: View {
     }
 
     private func help(for choice: CoinValidation.Choice) -> String {
+        let strings = store.strings
         switch choice.state {
-        case .available: ""
-        case .added: "\(choice.instrument.name) 已经在面板里"
+        case .available:
+            return ""
+        case .added:
+            return strings.alreadyOnPanel(choice.instrument.name(strings))
         case let .unreachable(message):
-            "\(message)。\(store.hint(for: store.source, market: choice.instrument.market))"
+            return strings.whyThenHint(
+                message, store.hint(for: store.source, market: choice.instrument.market)
+            )
         }
     }
 
@@ -167,11 +174,11 @@ struct AddCoinView: View {
     }
 }
 
-#Preview("添加") {
+#Preview("Add") {
     AddCoinView(store: Store())
 }
 
-#Preview("现货和合约都有") {
+#Preview("Spot and contract") {
     AddCoinView(store: Store(), code: "BTC", choices: [
         .init(instrument: Instrument(code: "BTC", market: .spot), state: .available),
         .init(instrument: Instrument(code: "BTC", market: .perpetual), state: .available),

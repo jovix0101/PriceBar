@@ -14,7 +14,7 @@ struct PanelView: View {
     @State private var scrollerStyle = NSScroller.preferredScrollerStyle
 
     /// The width of a row, whether the list scrolls or not. Wider by the
-    /// room a "合约" tag needs once there is a contract on the panel, so that
+    /// room a "Perp" tag needs once there is a contract on the panel, so that
     /// the tag does not come out of the price's side.
     private var rowWidth: CGFloat {
         280 + (store.hasContracts ? InstrumentName.wide - InstrumentName.narrow : 0)
@@ -101,7 +101,7 @@ struct PanelView: View {
             }
             if entries.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(store.error ?? "正在获取价格…")
+                    Text(store.error ?? store.strings.readingPrices)
                         .font(.caption)
                         .foregroundStyle(store.error == nil ? Color.secondary : Color.red)
                     if let hint = store.errorHint {
@@ -126,8 +126,8 @@ struct PanelView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.plain)
-            .help("立即刷新")
-            .accessibilityLabel("刷新价格")
+            .help(store.strings.refreshNow)
+            .accessibilityLabel(store.strings.refreshPrices)
 
             Button {
                 addingCoin = true
@@ -135,8 +135,8 @@ struct PanelView: View {
                 Image(systemName: "plus")
             }
             .buttonStyle(.plain)
-            .help("添加币种、贵金属或美股")
-            .accessibilityLabel("添加币种、贵金属或美股")
+            .help(store.strings.addInstrument)
+            .accessibilityLabel(store.strings.addInstrument)
             .popover(isPresented: $addingCoin, arrowEdge: .bottom) {
                 AddCoinView(store: store)
             }
@@ -158,22 +158,24 @@ struct PanelView: View {
                     }
                 }
                 Divider()
-                Button("菜单栏设置…") { SettingsWindow.shared.show(store: store, page: .menuBar) }
+                Button(store.strings.menuBarSettings) {
+                    SettingsWindow.shared.show(store: store, page: .menuBar)
+                }
             } label: {
                 Text(store.menuBarSummary)
                     .font(.caption)
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help("菜单栏显示哪些币种")
-            .accessibilityLabel("菜单栏显示哪些币种，现在\(store.menuBarSummary)")
+            .help(store.strings.menuBarCoinsLabel)
+            .accessibilityLabel(store.strings.menuBarCoinsNow(store.menuBarSummary))
 
             // A menu bar app must offer a way out: with no Dock icon and no
             // menu bar of its own, this menu and ⌘, are it.
             Menu {
-                Button("设置…") { SettingsWindow.shared.show(store: store) }
+                Button(store.strings.settingsItem) { SettingsWindow.shared.show(store: store) }
                 Divider()
-                Button("退出 PriceBar") { NSApplication.shared.terminate(nil) }
+                Button(store.strings.quitItem) { NSApplication.shared.terminate(nil) }
                     .keyboardShortcut("q", modifiers: .command)
             } label: {
                 Image(systemName: "gearshape")
@@ -182,8 +184,8 @@ struct PanelView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("设置与退出")
-            .accessibilityLabel("设置与退出")
+            .help(store.strings.settingsAndQuit)
+            .accessibilityLabel(store.strings.settingsAndQuit)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -207,11 +209,11 @@ private struct PriceRow: View {
     }
 
     private var code: String { Instrument(id: quote.coin).code }
-    private var name: String { Instrument(id: quote.coin).name }
+    private var name: String { Instrument(id: quote.coin).name(store.strings) }
 
     var body: some View {
         HStack(spacing: 8) {
-            InstrumentName(coin: quote.coin, wide: store.hasContracts)
+            InstrumentName(coin: quote.coin, store: store, wide: store.hasContracts)
 
             // A placeholder while the line is on its way, so that the prices
             // beside it do not shift when it arrives.
@@ -267,8 +269,8 @@ private struct PriceRow: View {
             .buttonStyle(.plain)
             .opacity(hovering || hasRules ? 1 : 0)
             .frame(width: 14)
-            .help("\(name) 的提醒")
-            .accessibilityLabel("\(name) 的提醒")
+            .help(store.strings.alertsFor(name))
+            .accessibilityLabel(store.strings.alertsFor(name))
             .accessibilityHidden(!hovering && !hasRules)
             .popover(isPresented: $showingRules, arrowEdge: .bottom) {
                 RulesView(coin: quote.coin, store: store)
@@ -290,20 +292,22 @@ private struct PriceRow: View {
         .onTapGesture {
             if store.openContractOnClick { store.openContract(for: quote.coin) }
         }
-        .help(store.openContractOnClick ? "在 \(store.source.label) 打开 \(code) 的合约行情" : "")
+        .help(store.openContractOnClick ? store.strings.openContractOn(store.source.label, code) : "")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
-        .accessibilityHint(store.openContractOnClick ? "打开 \(store.source.label) 的合约行情页" : "")
+        .accessibilityHint(store.openContractOnClick ? store.strings.openContractHint(store.source.label) : "")
         .contextMenu {
-            Button("\(name) 的提醒…") { showingRules = true }
-            Button("在 \(store.source.label) 打开合约行情") {
+            Button(store.strings.alertsMenuItem(name)) { showingRules = true }
+            Button(store.strings.openContractMenu(store.source.label)) {
                 store.openContract(for: quote.coin)
             }
-            Button(store.isOnMenuBar(quote.coin) ? "从菜单栏移除" : "显示在菜单栏") {
+            Button(store.isOnMenuBar(quote.coin)
+                ? store.strings.removeFromMenuBar
+                : store.strings.showInMenuBar) {
                 store.toggleMenuBar(quote.coin)
             }
             Divider()
-            Button("移除 \(name)", role: .destructive) {
+            Button(store.strings.removeCoin(name), role: .destructive) {
                 store.removeCoin(quote.coin)
             }
         }
@@ -326,8 +330,12 @@ private struct PriceRow: View {
     }
 
     private var accessibilityText: String {
-        let direction = quote.change > 0 ? "上涨" : (quote.change < 0 ? "下跌" : "持平")
-        return "\(name) \(store.money(quote.price))，24 小时\(direction) \(formatSigned(quote.change))"
+        store.strings.rowReading(
+            name: name,
+            money: store.money(quote.price),
+            change: formatSigned(quote.change),
+            rise: quote.change
+        )
     }
 }
 
@@ -344,11 +352,13 @@ private enum Entry: Identifiable {
     }
 }
 
-/// The code at the head of a row, and for a contract a small "合约" after
-/// it: BTC spot and BTC perpetual can sit on one panel, a few dollars apart,
-/// and the tag is how they are told apart.
+/// The code at the head of a row, and for a contract a small tag after it:
+/// BTC spot and BTC perpetual can sit on one panel, a few dollars apart, and
+/// the tag is how they are told apart.
 private struct InstrumentName: View {
     let coin: String
+    /// Read for the language of the tag beside a contract.
+    let store: Store
     /// Whether to keep the room a tag needs, on every row alike, so that
     /// the sparklines below each other still line up.
     let wide: Bool
@@ -362,7 +372,7 @@ private struct InstrumentName: View {
             Text(instrument.code)
                 .font(.system(.caption, weight: .semibold))
             if instrument.market == .perpetual {
-                Text(instrument.market.label)
+                Text(store.strings.shortLabel(instrument.market))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -382,7 +392,7 @@ private struct MissingRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            InstrumentName(coin: coin, wide: store.hasContracts)
+            InstrumentName(coin: coin, store: store, wide: store.hasContracts)
             Spacer(minLength: 4)
             Text(reason)
                 .font(.caption2)
@@ -399,9 +409,9 @@ private struct MissingRow: View {
         .padding(.vertical, 4)
         .help(detail)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(Instrument(id: coin).name)，\(detail)")
+        .accessibilityLabel("\(Instrument(id: coin).name(store.strings))\(store.strings.listSeparator)\(detail)")
         .contextMenu {
-            Button("移除 \(Instrument(id: coin).name)", role: .destructive) {
+            Button(store.strings.removeCoin(Instrument(id: coin).name(store.strings)), role: .destructive) {
                 store.removeCoin(coin)
             }
         }
@@ -409,18 +419,22 @@ private struct MissingRow: View {
 
     private var reason: String {
         switch why {
-        case .notListed: "\(store.source.label) 没有"
-        case .unreachable: "连不上"
+        case .notListed: store.strings.notListedBy(store.source.label)
+        case .unreachable: store.strings.unreachableShort
         }
     }
 
     private var detail: String {
         switch why {
         case .notListed:
-            return "\(store.source.label) 没有 \(Instrument(id: coin).name)，换个数据源试试"
+            return store.strings.notListedDetail(
+                store.source.label, Instrument(id: coin).name(store.strings)
+            )
         case let .unreachable(message):
             let market = Instrument(id: coin).market
-            return "\(message)。\(store.hint(for: store.source, market: market))"
+            return store.strings.whyThenHint(
+                message, store.hint(for: store.source, market: market)
+            )
         }
     }
 }
@@ -441,7 +455,7 @@ private let sampleLines = [
     "SOL": sampleLine(from: 140, drift: 0.0014, wobble: 0.007),
 ]
 
-#Preview("面板") {
+#Preview("Panel") {
     PanelView(store: Store(
         quotes: [
             Quote(coin: "BTC", price: 77424, change: 2.41),
@@ -451,7 +465,7 @@ private let sampleLines = [
     ))
 }
 
-#Preview("人民币") {
+#Preview("Yuan") {
     PanelView(store: Store(
         settings: {
             var settings = AppSettings()
@@ -467,7 +481,7 @@ private let sampleLines = [
     ))
 }
 
-#Preview("汇率还没到") {
+#Preview("Rate not in yet") {
     PanelView(store: Store(
         settings: {
             var settings = AppSettings()
@@ -479,6 +493,6 @@ private let sampleLines = [
     ))
 }
 
-#Preview("拿不到行情") {
-    PanelView(store: Store(quotes: [], error: "行情接口返回 HTTP 451"))
+#Preview("No prices") {
+    PanelView(store: Store(quotes: [], error: Strings().badResponse(451)))
 }

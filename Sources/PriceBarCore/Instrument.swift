@@ -14,12 +14,10 @@ public enum Market: String, Codable, CaseIterable, Sendable {
     /// few dollars apart, is a list nobody can read.
     case perpetual
 
-    /// The short name the panel and the settings put beside a contract.
-    public var label: String {
-        switch self {
-        case .spot: "现货"
-        case .perpetual: "合约"
-        }
+    /// The short name the panel and the settings put beside a contract,
+    /// through the words of the language in hand.
+    public func label(_ strings: Strings) -> String {
+        strings.shortLabel(self)
     }
 }
 
@@ -52,10 +50,10 @@ public struct Instrument: Hashable, Sendable {
         }
     }
 
-    /// How a sentence names it: "BTC", or "BTC 合约". Where there is room
+    /// How a sentence names it: "BTC", or "BTC Perp". Where there is room
     /// for a tag, the views draw the market smaller instead.
-    public var name: String {
-        market == .perpetual ? "\(code) \(market.label)" : code
+    public func name(_ strings: Strings) -> String {
+        market == .perpetual ? "\(code) \(market.label(strings))" : code
     }
 
     /// The stored form: the code, with ".P" after it for a perpetual.

@@ -1,4 +1,5 @@
 import Foundation
+import PriceBarCore
 import ServiceManagement
 
 /// Whether the app starts when the user logs in.
@@ -19,8 +20,8 @@ enum LoginItem {
     /// Turns the login item on or off, and returns an error message when the
     /// system refuses.
     @discardableResult
-    static func setEnabled(_ enabled: Bool) -> String? {
-        guard supported else { return "要以 .app 运行才能设开机自启" }
+    static func setEnabled(_ enabled: Bool, _ strings: Strings = Strings()) -> String? {
+        guard supported else { return strings.loginNeedsApp }
         do {
             if enabled {
                 try SMAppService.mainApp.register()

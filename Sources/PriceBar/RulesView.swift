@@ -14,8 +14,9 @@ struct RulesView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("\(Instrument(id: coin).name) 的提醒")
+        let strings = store.strings
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(strings.alertsFor(Instrument(id: coin).name(strings)))
                 .font(.headline)
 
             if authorization == .denied {
@@ -24,7 +25,7 @@ struct RulesView: View {
 
             let rules = store.rules(for: coin)
             if rules.isEmpty {
-                Text("还没有提醒。")
+                Text(strings.noAlerts)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -51,10 +52,10 @@ struct RulesView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 4) {
-                Text("系统通知被关闭了，提醒不会弹出来。")
+                Text(store.strings.notificationsOff)
                     .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("打开通知设置") { Notifier.openSettings() }
+                Button(store.strings.openNotificationSettings) { Notifier.openSettings() }
                     .buttonStyle(.link)
                     .font(.caption)
             }
@@ -64,25 +65,26 @@ struct RulesView: View {
     }
 
     private var form: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("看什么", selection: $metric) {
+        let strings = store.strings
+        return VStack(alignment: .leading, spacing: 8) {
+            Picker(strings.watchesLabel, selection: $metric) {
                 ForEach(Metric.allCases, id: \.self) { metric in
-                    Text(metric.label).tag(metric)
+                    Text(strings.label(metric)).tag(metric)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
 
             HStack(spacing: 8) {
-                Picker("方向", selection: $above) {
-                    Text("高于").tag(true)
-                    Text("低于").tag(false)
+                Picker(strings.directionLabel, selection: $above) {
+                    Text(strings.aboveLabel).tag(true)
+                    Text(strings.belowLabel).tag(false)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 110)
 
-                TextField("阈值", text: $threshold)
+                TextField(strings.thresholdLabel, text: $threshold)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .onSubmit(add)
@@ -94,15 +96,15 @@ struct RulesView: View {
             }
 
             Text(metric == .price
-                 ? "阈值按美元填，与面板显示的货币无关。"
-                 : "填正数即可：低于 5 表示跌 5%。")
+                 ? strings.thresholdDollarsNote
+                 : strings.thresholdPercentNote)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
                 Spacer()
-                Button("添加提醒") { add() }
+                Button(strings.addAlert) { add() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canAdd)
             }
@@ -132,19 +134,20 @@ private struct RuleRow: View {
     let store: Store
 
     var body: some View {
-        HStack(spacing: 6) {
+        let strings = store.strings
+        return HStack(spacing: 6) {
             Image(systemName: rule.armed ? "bell" : "bell.slash")
                 .font(.caption)
                 .foregroundStyle(rule.armed ? Color.secondary : Color.orange)
 
-            Text(description)
+            Text(description(strings))
                 .font(.caption)
                 .monospacedDigit()
 
             Spacer(minLength: 0)
 
             if !rule.armed {
-                Button("重新启用") { store.rearm(rule.id) }
+                Button(strings.reEnable) { store.rearm(rule.id) }
                     .buttonStyle(.link)
                     .font(.caption2)
             }
@@ -156,24 +159,22 @@ private struct RuleRow: View {
                     .font(.caption)
             }
             .buttonStyle(.plain)
-            .help("删除这条提醒")
-            .accessibilityLabel("删除 \(description)")
+            .help(strings.deleteThisAlert)
+            .accessibilityLabel(strings.deleteNamed(description(strings)))
         }
         .padding(.vertical, 2)
     }
 
-    private var description: String {
-        let direction = rule.above ? "高于" : "低于"
-        switch rule.metric {
-        case .price:
-            return "价格 \(direction) \(rule.thresholdText)"
-        case .change:
-            return "24h 涨跌幅 \(direction) \(rule.thresholdText)"
-        }
+    private func description(_ strings: Strings) -> String {
+        strings.ruleLine(
+            strings.label(rule.metric),
+            above: rule.above,
+            threshold: rule.thresholdText
+        )
     }
 }
 
-#Preview("提醒") {
+#Preview("Alerts") {
     RulesView(coin: "BTC", store: Store(
         settings: {
             var settings = AppSettings()

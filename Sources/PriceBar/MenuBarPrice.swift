@@ -33,12 +33,12 @@ enum MenuBarPrice {
     /// The colour of the coin and the price, or nil to leave it to the menu bar.
     ///
     /// A run left without a colour is drawn in the menu bar's own label colour
-    /// and follows light and dark by itself, which is what "自动" means. A
+    /// and follows light and dark by itself, which is what "automatic" means. A
     /// colour of its own gives up that adaptation on purpose: it is for a menu
     /// bar that reads as light while the system says dark, or the other way
     /// round.
     ///
-    /// "随涨跌" reads the change and takes the panel's own green or red, so
+    /// "change" reads the change and takes the panel's own green or red, so
     /// that the price in the menu bar and the number in the panel cannot
     /// disagree. A change with no side of its own — one that prints as "0%" —
     /// has nothing to colour, so the menu bar's colour comes back.
@@ -104,10 +104,10 @@ enum MenuBarPrice {
     }
 
     /// The label as a screen reader, or a tooltip, should read it.
-    static func reading(_ labels: [Label]) -> String {
+    static func reading(_ labels: [Label], _ strings: Strings = Strings()) -> String {
         labels
             .map { "\($0.coin) \($0.symbol)\($0.amount) \($0.change)" }
-            .joined(separator: "，")
+            .joined(separator: strings.listSeparator)
             .trimmingCharacters(in: .whitespaces)
     }
 

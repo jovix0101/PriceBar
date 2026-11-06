@@ -43,7 +43,7 @@ let package = Package(
 )
 EOF
 
-swift build --package-path "$WORK" -c release 2>&1 | tail -1
+swift build --package-path "$WORK" -c release 2>&1 | grep -E "error:|warning:" | head -20 || true
 
 APP="$WORK/Shots.app"
 mkdir -p "$APP/Contents/MacOS"
@@ -64,4 +64,5 @@ EOF
 
 echo "==> Drawing the settings pages"
 "$APP/Contents/MacOS/Shots" "$ROOT/docs"
-echo "==> Done: docs/settings-general.png, docs/settings-menubar.png, docs/settings-panel.png, docs/settings-source.png"
+echo "==> Done: docs/settings-{general,menubar,panel,source}.png (English)"
+echo "    and the -zh copies, plus docs/panel.png and docs/panel-zh.png"

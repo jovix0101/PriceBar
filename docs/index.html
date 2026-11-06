@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PriceBar — macOS 菜单栏行情与价格提醒</title>
-<meta name="description" content="一个 macOS 菜单栏小工具：币、黄金、白银、美股的行情放在菜单栏里，点开看 24 小时走势和涨跌幅，价格越过你设的线就发通知。开源、免费。">
+<title>PriceBar — prices in the menu bar</title>
+<meta name="description" content="A macOS menu bar app for crypto, gold, silver and US stock prices. Click the icon for a 24-hour chart and change, and get a notification when a price crosses your line. Open source, free.">
 <link rel="canonical" href="https://jovix0101.github.io/pricebar/">
-<link rel="alternate" hreflang="zh-CN" href="https://jovix0101.github.io/pricebar/">
-<link rel="alternate" hreflang="en" href="https://jovix0101.github.io/pricebar/en.html">
+<link rel="alternate" hreflang="zh-CN" href="https://jovix0101.github.io/pricebar/zh.html">
+<link rel="alternate" hreflang="en" href="https://jovix0101.github.io/pricebar/">
 <link rel="alternate" hreflang="x-default" href="https://jovix0101.github.io/pricebar/">
 <meta name="theme-color" content="#f8f8f7">
 <link rel="apple-touch-icon" href="icon.png">
@@ -15,16 +15,16 @@
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PriceBar">
-<meta property="og:locale" content="zh_CN">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://jovix0101.github.io/pricebar/">
-<meta property="og:title" content="PriceBar — 价格就在菜单栏里">
-<meta property="og:description" content="macOS 菜单栏小工具：币、黄金、白银、美股的行情，24 小时走势、涨跌幅、价格提醒。开源、免费。">
+<meta property="og:title" content="PriceBar — prices in the menu bar">
+<meta property="og:description" content="A macOS menu bar app for crypto, gold, silver and US stock prices: 24-hour chart, change, price alerts. Open source, free.">
 <meta property="og:image" content="https://jovix0101.github.io/pricebar/card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="PriceBar — 价格就在菜单栏里">
-<meta name="twitter:description" content="macOS 菜单栏小工具：币、黄金、白银、美股的行情，24 小时走势、涨跌幅、价格提醒。开源、免费。">
+<meta name="twitter:title" content="PriceBar — prices in the menu bar">
+<meta name="twitter:description" content="A macOS menu bar app for crypto, gold, silver and US stock prices: 24-hour chart, change, price alerts. Open source, free.">
 <meta name="twitter:image" content="https://jovix0101.github.io/pricebar/card.png">
 
 <script type="application/ld+json">
@@ -35,7 +35,7 @@
   "operatingSystem": "macOS 14+",
   "applicationCategory": "FinanceApplication",
   "applicationSubCategory": "Price ticker",
-  "description": "macOS 菜单栏小工具：币、黄金、白银、美股的行情，24 小时走势、涨跌幅、价格提醒。",
+  "description": "A macOS menu bar app for crypto, gold, silver and US stock prices: 24-hour chart, change, price alerts.",
   "url": "https://jovix0101.github.io/pricebar/",
   "downloadUrl": "https://github.com/jovix0101/pricebar/releases/latest",
   "fileSize": "2 MB",
@@ -62,31 +62,32 @@
       PriceBar
     </div>
     <nav>
-      <a href="en.html" lang="en" hreflang="en">English</a>
+      <a href="zh.html" lang="zh-CN" hreflang="zh-CN">中文</a>
       <a href="https://github.com/jovix0101/pricebar">GitHub</a>
-      <a href="https://github.com/jovix0101/pricebar#readme">文档</a>
+      <a href="https://github.com/jovix0101/pricebar#readme">Docs</a>
     </nav>
   </header>
 
   <div class="hero">
-    <h1>价格，就在菜单栏里。</h1>
+    <h1>Prices in the menu bar.</h1>
     <p class="lede">
-      一个 macOS 菜单栏小工具。币、黄金、白银、美股的行情放在菜单栏上，
-      点开能看 24 小时走势和涨跌幅，越过你设的线就发一条通知。
+      A small macOS menu bar app. Crypto, gold, silver and US stocks sit in the menu bar;
+      click the icon for a 24-hour chart and the day's change, and get a notification
+      when a price crosses a line you set.
     </p>
 
     <div class="actions">
       <a class="btn" href="https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg">
-        下载 .dmg
+        Download .dmg
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path d="M8 2v8M4.5 7l3.5 3.5L11.5 7M2.5 13h11" stroke="currentColor" stroke-width="1.6"
                 stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </a>
-      <span class="meta">2 MB · 开源 · MIT · 需要 macOS 14</span>
+      <span class="meta">2 MB · Open source · MIT · macOS 14 or later</span>
     </div>
 
-    <div class="menubar" role="img" aria-label="菜单栏示例：BTC $ 80,356 ▲2.39%，ETH $ 2,414 ▲3.92%，XAU $ 4,118 ▲0.62%，AAPL $ 271.40 ▼0.31%">
+    <div class="menubar" role="img" aria-label="Menu bar example: BTC $80,356 ▲2.39%, ETH $2,414 ▲3.92%, XAU $4,118 ▲0.62%, AAPL $271.40 ▼0.31%">
       <div class="label">
         <span class="coin">BTC</span><span class="sym">$</span><span>80,356</span><span class="chg">▲2.39%</span>
       </div>
@@ -100,97 +101,100 @@
         <span class="coin">AAPL</span><span class="sym">$</span><span>271.40</span><span class="chg down">▼0.31%</span>
       </div>
     </div>
-    <p class="cap">勾上几个，就并排显示几个。</p>
+    <p class="cap">Tick what you want to see and it lines up side by side.</p>
   </div>
 
   <section>
     <div class="pair">
       <figure>
-        <img class="shot shot-panel" src="panel.png" width="596" height="286" loading="lazy"
-             alt="PriceBar 面板：BTC、ETH 现货，黄金 XAU 与苹果 AAPL 的永续合约，各自带 24 小时行情线、美元价格与涨跌幅">
-        <figcaption class="cap">点开菜单栏图标，每行一个品种。</figcaption>
+        <img class="shot shot-panel" src="panel.png" width="300" height="169" loading="lazy"
+             alt="PriceBar panel: BTC and ETH spot, gold XAU and Apple AAPL perpetuals, each with a 24-hour chart, dollar price and change">
+        <figcaption class="cap">Click the icon and each instrument gets a row.</figcaption>
       </figure>
       <ul class="points">
-        <li><b>币、黄金、白银、美股</b><span>币取现货价，黄金和美股取交易所的永续合约，都排在同一个面板里。</span></li>
-        <li><b>一个框加品种</b><span>填代号就行。BTC 默认加现货，要合约也顺手勾上。</span></li>
-        <li><b>价格提醒</b><span>越过线发一次通知，之后待命，不反复打扰。</span></li>
-        <li><b>四家交易所</b><span>Binance、Gate、OKX、Bybit，境外网络可以挂代理。</span></li>
-        <li><b>美元或人民币</b><span>汇率一天更新一次。</span></li>
+        <li><b>Crypto, gold, silver, US stocks</b><span>Crypto at spot price. Gold and US stocks come from exchange perpetuals. All of them in one panel.</span></li>
+        <li><b>One field to add a symbol</b><span>Type a ticker. BTC adds spot by default; tick the perpetual as well if you want both.</span></li>
+        <li><b>Price alerts</b><span>One notification when the price crosses your line. Then it waits instead of nagging.</span></li>
+        <li><b>Four exchanges</b><span>Binance, Gate, OKX, Bybit. There is a proxy setting for networks that need one.</span></li>
+        <li><b>USD or CNY</b><span>The exchange rate updates once a day.</span></li>
       </ul>
     </div>
   </section>
 
   <section>
-    <h2>设置</h2>
+    <h2>Settings</h2>
     <div class="shots" data-shots>
       <div class="shots-track">
         <figure class="shot-slide on">
-          <img src="settings-general.png" width="380" height="344"
-               alt="通用页：计价货币选美元或人民币，涨跌颜色可选绿涨红跌或红涨绿跌，刷新间隔 5 秒到 1 分钟，还有登录时自动启动">
+          <img src="settings-general.png" width="380" height="450"
+               alt="General tab: currency in USD or CNY, green-or-red change colours, refresh interval from 5 seconds to a minute, and launch at login">
         </figure>
         <figure class="shot-slide">
-          <img src="settings-menubar.png" width="380" height="313"
-               alt="菜单栏页：勾选哪几个品种显示在菜单栏，拖左边的把手调顺序，文字颜色可选自动、深色、浅色、随涨跌">
+          <img src="settings-menubar.png" width="380" height="326"
+               alt="Menu bar tab: which instruments appear in the menu bar, drag the handles to reorder, and text colour set to automatic, dark, light or following the change">
         </figure>
         <figure class="shot-slide">
           <img src="settings-panel.png" width="380" height="171"
-               alt="面板页：最多显示 6、8、10、12 行或自定义行数，以及点击币种是否打开合约行情">
+               alt="Panel tab: how many rows the panel shows before it scrolls, and whether a click opens the contract page">
         </figure>
         <figure class="shot-slide">
-          <img src="settings-source.png" width="380" height="184"
-               alt="数据源与代理页：数据源选 Binance、Gate、OKX 或 Bybit，代理可选直连、跟随系统、自定义，并能测一次连接">
+          <img src="settings-source.png" width="380" height="197"
+               alt="Source and proxy tab: pick Binance, Gate, OKX or Bybit, and set the proxy to direct, system or a custom address, with a connection test">
         </figure>
       </div>
       <div class="shots-bar">
-        <button class="shots-arrow" data-step="-1" aria-label="上一页">
+        <button class="shots-arrow" data-step="-1" aria-label="Previous tab">
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
             <path d="M7.4 2.6 4.2 6l3.2 3.4" fill="none" stroke="currentColor"
                   stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
         <div class="shots-tabs">
-          <button class="shots-tab" aria-pressed="true">通用</button>
-          <button class="shots-tab" aria-pressed="false">菜单栏</button>
-          <button class="shots-tab" aria-pressed="false">面板</button>
-          <button class="shots-tab" aria-pressed="false">数据源</button>
+          <button class="shots-tab" aria-pressed="true">General</button>
+          <button class="shots-tab" aria-pressed="false">Menu bar</button>
+          <button class="shots-tab" aria-pressed="false">Panel</button>
+          <button class="shots-tab" aria-pressed="false">Source</button>
         </div>
-        <button class="shots-arrow" data-step="1" aria-label="下一页">
+        <button class="shots-arrow" data-step="1" aria-label="Next tab">
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
             <path d="M4.6 2.6 7.8 6l-3.2 3.4" fill="none" stroke="currentColor"
                   stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
       </div>
+      <p class="cap">The window comes in English and Chinese; the first tab switches.</p>
     </div>
   </section>
 
   <section>
-    <h2>装起来</h2>
+    <h2>Install</h2>
     <p style="margin:0 0 16px;color:var(--body)">
-      打开 <code>PriceBar.dmg</code>，把 <code>PriceBar.app</code> 拖进「应用程序」。
-      安装包约 2 MB，装好占 2.8 MB；就一个 app，没有第三方依赖，也没有额外的后台进程。
-      没有公证，首次打开若被拦，右键点「打开」一次。
+      Open <code>PriceBar.dmg</code> and drag <code>PriceBar.app</code> into Applications.
+      The download is about 2 MB and the installed app takes 2.8 MB. It is a single app with no
+      third-party dependencies and no extra background process. It is not notarized, so if macOS blocks
+      the first launch, right-click the app and choose Open. The interface is in English, with Chinese
+      one switch away.
     </p>
     <p style="margin:0 0 12px;color:var(--body)">
-      自己编也行：
+      Or build it yourself:
     </p>
-<pre><span class="c"># 取源码</span>
+<pre><span class="c"># clone</span>
 git clone https://github.com/jovix0101/pricebar.git
 cd pricebar
 
-<span class="c"># 编译、打包成 .app 与 .dmg</span>
+<span class="c"># build the .app and the .dmg</span>
 ./build.sh
 
-<span class="c"># 放到应用程序目录后打开</span>
+<span class="c"># install and open</span>
 cp -R build/PriceBar.app /Applications/
 open /Applications/PriceBar.app</pre>
   </section>
 
   <footer>
-    <span>PriceBar · 一个菜单栏工具</span>
+    <span>PriceBar · a menu bar app</span>
     <span>
-      <a href="https://github.com/jovix0101/pricebar">源码</a> ·
-      <a href="https://github.com/jovix0101/pricebar/blob/main/README.md">文档</a> ·
+      <a href="https://github.com/jovix0101/pricebar">Source</a> ·
+      <a href="https://github.com/jovix0101/pricebar/blob/main/README.md">Docs</a> ·
       MIT License
     </span>
   </footer>

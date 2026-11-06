@@ -6,13 +6,8 @@ import PriceBarCore
 enum SettingsPage: Int, CaseIterable {
     case general, menuBar, panel, source
 
-    var title: String {
-        switch self {
-        case .general: "通用"
-        case .menuBar: "菜单栏"
-        case .panel: "面板"
-        case .source: "数据源"
-        }
+    func title(_ strings: Strings) -> String {
+        strings.pageTitle(self)
     }
 
     var symbol: String {
@@ -63,27 +58,47 @@ private struct GeneralSettings: View {
     @State private var launchProblem: String?
 
     var body: some View {
+        let strings = store.strings
         VStack(alignment: .leading, spacing: 18) {
-            settingsGroup("显示") {
-                settingsRow("计价货币") {
+            settingsGroup(strings.languageGroup) {
+                settingsRow(strings.languageLabel) {
                     Picker("", selection: Binding(
-                        get: { store.currency },
-                        set: { store.currency = $0 }
+                        get: { store.language },
+                        set: { store.language = $0 }
                     )) {
-                        Text("美元 USD").tag(Currency.usd)
-                        Text("人民币 CNY").tag(Currency.cny)
+                        ForEach(Language.allCases, id: \.self) { language in
+                            Text(language.label).tag(language)
+                        }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(width: controlWidth)
                 }
-                settingsRow("涨跌颜色") {
+            } note: {
+                noteText(strings.languageNote)
+            }
+
+            settingsGroup(strings.displayGroup) {
+                settingsRow(strings.currencyLabel) {
+                    Picker("", selection: Binding(
+                        get: { store.currency },
+                        set: { store.currency = $0 }
+                    )) {
+                        Text(strings.usdLabel).tag(Currency.usd)
+                        Text(strings.cnyLabel).tag(Currency.cny)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: controlWidth)
+                }
+                settingsRow(strings.changeColorsLabel) {
                     Picker("", selection: Binding(
                         get: { store.changeColors },
                         set: { store.changeColors = $0 }
                     )) {
-                        Text("绿涨红跌").tag(ChangeColors.greenUp)
-                        Text("红涨绿跌").tag(ChangeColors.redUp)
+                        ForEach(ChangeColors.allCases, id: \.self) { colors in
+                            Text(strings.label(colors)).tag(colors)
+                        }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -91,31 +106,31 @@ private struct GeneralSettings: View {
                 }
             } note: {
                 noteText(store.currency == .cny && store.rate == nil
-                    ? "汇率还没取到，价格暂时显示为 —。"
-                    : "汇率用欧洲央行的参考价，每天更新一次。")
+                    ? strings.ratePending
+                    : strings.rateSource)
             }
 
-            settingsGroup("行情") {
-                settingsRow("刷新间隔") {
+            settingsGroup(strings.quotesGroup) {
+                settingsRow(strings.refreshLabel) {
                     Picker("", selection: Binding(
                         get: { store.interval },
                         set: { store.interval = $0 }
                     )) {
-                        Text("5 秒").tag(5.0)
-                        Text("10 秒").tag(10.0)
-                        Text("30 秒").tag(30.0)
-                        Text("1 分钟").tag(60.0)
+                        Text(strings.secondsLabel(5)).tag(5.0)
+                        Text(strings.secondsLabel(10)).tag(10.0)
+                        Text(strings.secondsLabel(30)).tag(30.0)
+                        Text(strings.oneMinuteLabel).tag(60.0)
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(width: controlWidth)
                 }
             } note: {
-                noteText("行情线取 24 小时，只在打开面板时更新。")
+                noteText(strings.linesNote)
             }
 
-            settingsGroup("启动") {
-                settingsRow("登录时自动启动") {
+            settingsGroup(strings.startupGroup) {
+                settingsRow(strings.openAtLoginLabel) {
                     Toggle("", isOn: Binding(
                         get: { launchAtLogin },
                         set: { turnOn in
@@ -132,8 +147,8 @@ private struct GeneralSettings: View {
             } note: {
                 noteText(
                     launchProblem ?? (LoginItem.supported
-                        ? "登录后 PriceBar 会直接出现在菜单栏。"
-                        : "要以 .app 运行才能设开机自启。"),
+                        ? strings.loginOnNote
+                        : strings.loginNeedsApp),
                     color: launchProblem == nil ? .secondary : .red
                 )
             }
@@ -149,17 +164,18 @@ private struct MenuBarSettings: View {
     @State private var dragging: String?
 
     var body: some View {
-        settingsGroup("菜单栏") {
-            settingsRow("显示币种", alignment: .top) {
+        let strings = store.strings
+        return settingsGroup(strings.menuBarGroup) {
+            settingsRow(strings.coinsLabel, alignment: .top) {
                 coinList
             }
-            settingsRow("文字颜色") {
+            settingsRow(strings.textColourLabel) {
                 Picker("", selection: Binding(
                     get: { store.menuBarTint },
                     set: { store.menuBarTint = $0 }
                 )) {
                     ForEach(MenuBarTint.allCases, id: \.self) { tint in
-                        Text(tint.label).tag(tint)
+                        Text(strings.label(tint)).tag(tint)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -173,24 +189,24 @@ private struct MenuBarSettings: View {
                 .padding(.vertical, 7)
         } note: {
             if store.menuBarCoins.isEmpty {
-                noteText("没勾选时显示面板里的第一个币种。", color: .orange)
+                noteText(strings.noCoinsTicked, color: .orange)
             } else if store.menuBarCoins.count > 1 {
-                noteText("勾选的币种并排显示，从左到右就是这个顺序。")
+                noteText(strings.severalTicked)
             } else {
-                noteText("勾选的币种显示在菜单栏。")
+                noteText(strings.oneTicked)
             }
-            noteText("拖动左边的把手可以调顺序，这个顺序也是面板里的顺序。")
+            noteText(strings.dragToReorder)
             if store.coins.count > visibleCoinRows {
-                noteText("币种多了列表可以滚动，共 \(store.coins.count) 个。")
+                noteText(strings.manyCoins(store.coins.count))
             }
             switch store.menuBarTint {
             case .automatic:
-                noteText("自动：跟着菜单栏自己的颜色走，换壁纸、切深浅色都能看清。")
+                noteText(strings.tintAutomaticNote)
             case .change:
-                noteText("随涨跌：每个币种按自己的涨跌着色，和面板里的百分比同一个颜色。")
-                noteText("涨跌幅正好为 0 时没有方向，交回系统着色。")
+                noteText(strings.tintChangeNote)
+                noteText(strings.tintFlatNote)
             case .dark, .light:
-                noteText("固定用\(store.menuBarTint.label)，不随下次换壁纸变化。")
+                noteText(strings.tintFixed(strings.label(store.menuBarTint)))
             }
         }
     }
@@ -242,7 +258,7 @@ private struct MenuBarSettings: View {
             Text(Instrument(id: coin).code)
                 .font(.system(size: 12, weight: .medium))
             if Instrument(id: coin).market == .perpetual {
-                Text(Market.perpetual.label)
+                Text(store.strings.shortLabel(.perpetual))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -255,8 +271,8 @@ private struct MenuBarSettings: View {
                     .foregroundStyle(on ? Color.accentColor : Color.secondary.opacity(0.55))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(Instrument(id: coin).name) 显示在菜单栏")
-            .accessibilityValue(on ? "已选" : "未选")
+            .accessibilityLabel(store.strings.inMenuBar(Instrument(id: coin).name(store.strings)))
+            .accessibilityValue(on ? store.strings.shownValue : store.strings.hiddenValue)
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
@@ -269,7 +285,7 @@ private struct MenuBarSettings: View {
             dragging = coin
             return NSItemProvider(object: coin as NSString)
         } preview: {
-            Text(Instrument(id: coin).name)
+            Text(Instrument(id: coin).name(store.strings))
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -301,8 +317,8 @@ private struct MenuBarSettings: View {
     private var backdrop: AnyShapeStyle {
         switch store.menuBarTint {
         // Green and red are read against the wallpaper like any other
-        // menu bar item, so the swatch for "随涨跌" is the same neutral
-        // one "自动" sits on.
+        // menu bar item, so the swatch for "change" is the same neutral one
+        // "automatic" sits on.
         case .automatic, .change: AnyShapeStyle(.quaternary.opacity(0.5))
         case .dark: AnyShapeStyle(Color.white.opacity(0.9))
         case .light: AnyShapeStyle(Color.black.opacity(0.75))
@@ -315,7 +331,7 @@ private struct PanelSettings: View {
     let store: Store
 
     /// Whether the row limit is one of the user's own rather than a preset.
-    /// Kept apart from the limit itself: picking "自定义" while the limit is
+    /// Kept apart from the limit itself: picking "custom" while the limit is
     /// still 8 has to show the field, not snap back to the preset.
     @State private var custom: Bool
 
@@ -330,8 +346,9 @@ private struct PanelSettings: View {
     private static let customTag = 0
 
     var body: some View {
-        settingsGroup("面板") {
-            settingsRow("最多显示") {
+        let strings = store.strings
+        return settingsGroup(strings.panelGroup) {
+            settingsRow(strings.maxRowsLabel) {
                 Picker("", selection: Binding(
                     get: { custom ? Self.customTag : store.panelRows },
                     set: { choice in
@@ -340,30 +357,30 @@ private struct PanelSettings: View {
                     }
                 )) {
                     ForEach(Self.rowChoices, id: \.self) { rows in
-                        Text("\(rows) 行").tag(rows)
+                        Text(strings.rowsChoice(rows)).tag(rows)
                     }
-                    Text("自定义").tag(Self.customTag)
+                    Text(strings.customChoice).tag(Self.customTag)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 236)
             }
             if custom {
-                settingsRow("自定义行数") {
+                settingsRow(strings.customRowsLabel) {
                     HStack(spacing: 6) {
                         TextField("", value: rows, format: .number)
                             .textFieldStyle(.roundedBorder)
                             .multilineTextAlignment(.trailing)
                             .monospacedDigit()
                             .frame(width: 48)
-                        Text("行")
+                        Text(strings.rowsUnit)
                             .font(.system(size: 13))
                         Stepper("", value: rows, in: AppSettings.panelRowRange)
                             .labelsHidden()
                     }
                 }
             }
-            settingsRow("点击币种打开合约行情") {
+            settingsRow(strings.clickOpensContractLabel) {
                 Toggle("", isOn: Binding(
                     get: { store.openContractOnClick },
                     set: { store.openContractOnClick = $0 }
@@ -372,13 +389,13 @@ private struct PanelSettings: View {
                 .labelsHidden()
             }
         } note: {
-            noteText("币种多过这几行，面板里滚动，不挡住下面的窗口。")
+            noteText(strings.panelScrollsNote)
             if custom {
-                noteText("自定义可设 \(AppSettings.panelRowRange.lowerBound)–\(AppSettings.panelRowRange.upperBound) 行。")
+                noteText(strings.customRangeNote(AppSettings.panelRowRange))
             }
             noteText(store.openContractOnClick
-                ? "点一下面板里的币种，在浏览器打开 \(store.source.label) 的合约行情。"
-                : "点击面板里的币种不再跳转；右键菜单里仍能打开合约行情。")
+                ? strings.clickOpensNote(store.source.label)
+                : strings.clickDoesNothingNote)
         }
     }
 
@@ -411,8 +428,9 @@ private struct SourceSettings: View {
     @FocusState private var addressFocused: Bool
 
     var body: some View {
-        settingsGroup("数据源与代理") {
-            settingsRow("数据源") {
+        let strings = store.strings
+        return settingsGroup(strings.sourceGroup) {
+            settingsRow(strings.sourceLabel) {
                 Picker("", selection: Binding(
                     get: { store.source },
                     set: { store.source = $0 }
@@ -425,7 +443,7 @@ private struct SourceSettings: View {
                 .labelsHidden()
                 .frame(width: controlWidth, alignment: .trailing)
             }
-            settingsRow("代理") {
+            settingsRow(strings.proxyLabel) {
                 Picker("", selection: Binding(
                     get: { store.proxyMode },
                     // Leaving the custom row takes the address with it: the
@@ -433,16 +451,16 @@ private struct SourceSettings: View {
                     // draft is written down before the mode changes.
                     set: { commitAddress(); store.proxyMode = $0 }
                 )) {
-                    Text("直连").tag(ProxyMode.direct)
-                    Text("跟随系统").tag(ProxyMode.system)
-                    Text("自定义").tag(ProxyMode.custom)
+                    ForEach(ProxyMode.allCases, id: \.self) { mode in
+                        Text(strings.label(mode)).tag(mode)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: controlWidth)
             }
             if store.proxyMode == .custom {
-                settingsRow("代理地址") {
+                settingsRow(strings.proxyAddressLabel) {
                     TextField("http://127.0.0.1:1080", text: $proxyDraft)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 11))
@@ -462,13 +480,13 @@ private struct SourceSettings: View {
                         .frame(width: controlWidth)
                 }
             }
-            settingsRow("连接测试") {
+            settingsRow(strings.connectionTestLabel) {
                 HStack(spacing: 6) {
                     if store.testing {
                         ProgressView()
                             .controlSize(.small)
                     }
-                    Button("测试") {
+                    Button(strings.testButton) {
                         commitAddress()
                         store.testConnection()
                     }
@@ -479,15 +497,15 @@ private struct SourceSettings: View {
             if let problem = store.proxyProblem {
                 noteText(problem, color: .red)
             } else if store.testing {
-                noteText("正在连接 \(store.source.label)…")
+                noteText(strings.connectingTo(store.source.label))
             } else if let result = store.connectionTest {
                 noteText(result.text, color: result.ok ? .secondary : .red)
             } else if store.source.normallyNeedsProxy {
-                noteText("\(store.source.label) 通常要挂代理才能连上，先测一次再决定。")
+                noteText(strings.usuallyNeedsProxy(store.source.label))
             } else if store.hasContracts, store.source.normallyNeedsProxy(for: .perpetual) {
-                noteText("\(store.source.label) 的现货能直连，合约通常要挂代理，先测一次再决定。")
+                noteText(strings.spotDirectContractProxy(store.source.label))
             } else {
-                noteText("代理只作用于当前选中的数据源。")
+                noteText(strings.proxyAppliesToSource)
             }
         }
         // The page can be left with the address half typed: switching tabs
@@ -598,7 +616,7 @@ private struct CoinDrop: DropDelegate {
     }
 }
 
-#Preview("面板设置") {
+#Preview("Panel settings") {
     SettingsView(store: Store(quotes: [
         Quote(coin: "BTC", price: 77424, change: 2.41),
         Quote(coin: "ETH", price: 2287, change: -0.87),

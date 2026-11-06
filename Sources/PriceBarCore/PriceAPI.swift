@@ -47,15 +47,20 @@ public enum PriceAPI {
     public static func read(
         _ ids: [String],
         source: MarketSource = .binance,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        strings: Strings = Strings()
     ) async -> Reading {
         let wanted = ids.map(Instrument.init(id:))
         guard !wanted.isEmpty else { return Reading() }
         let spot = wanted.filter { $0.market == .spot }
         let perpetual = wanted.filter { $0.market == .perpetual }
 
-        async let spotOutcomes = outcomes(for: spot, market: .spot, source: source, session: session)
-        async let perpetualOutcomes = outcomes(for: perpetual, market: .perpetual, source: source, session: session)
+        async let spotOutcomes = outcomes(
+            for: spot, market: .spot, source: source, session: session, strings: strings
+        )
+        async let perpetualOutcomes = outcomes(
+            for: perpetual, market: .perpetual, source: source, session: session, strings: strings
+        )
         let all = await spotOutcomes + perpetualOutcomes
 
         var found: [String: Quote] = [:]
@@ -75,9 +80,10 @@ public enum PriceAPI {
     public static func quotes(
         for ids: [String],
         source: MarketSource = .binance,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        strings: Strings = Strings()
     ) async throws -> [Quote] {
-        let reading = await read(ids, source: source, session: session)
+        let reading = await read(ids, source: source, session: session, strings: strings)
         if reading.quotes.isEmpty, !ids.isEmpty {
             throw reading.unreachable.map(PriceError.unreachable) ?? PriceError.noData
         }
@@ -101,7 +107,8 @@ public enum PriceAPI {
         for instruments: [Instrument],
         market: Market,
         source: MarketSource,
-        session: URLSession
+        session: URLSession,
+        strings: Strings
     ) async -> [Outcome] {
         guard !instruments.isEmpty else { return [] }
         if source.answersManyAtOnce(on: market), instruments.count > 1 {
@@ -116,22 +123,25 @@ public enum PriceAPI {
                 // away. Asked one by one, the others still get their price.
                 break
             case let .failure(error):
-                return instruments.map { .absent(id: $0.id, why: .unreachable(describe(error))) }
+                return instruments.map {
+                    .absent(id: $0.id, why: .unreachable(describe(error, strings)))
+                }
             }
         }
-        return await oneByOne(instruments, source: source, session: session)
+        return await oneByOne(instruments, source: source, session: session, strings: strings)
     }
 
     /// Reads one instrument per request, side by side.
     private static func oneByOne(
         _ instruments: [Instrument],
         source: MarketSource,
-        session: URLSession
+        session: URLSession,
+        strings: Strings
     ) async -> [Outcome] {
         await withTaskGroup(of: Outcome.self) { group in
             for instrument in instruments {
                 group.addTask {
-                    await outcome(of: instrument, source: source, session: session)
+                    await outcome(of: instrument, source: source, session: session, strings: strings)
                 }
             }
             var all: [Outcome] = []
@@ -148,8 +158,13 @@ public enum PriceAPI {
     /// answer 200 with nothing in it; anything else — a refused connection,
     /// a 403 or 451 from a blocked region — is the market being out of
     /// reach, which a proxy may fix and a different code will not.
-    private static func outcome(of instrument: Instrument, source: MarketSource, session: URLSession) async -> Outcome {
-        var problem = describe(PriceError.noData)
+    private static func outcome(
+        of instrument: Instrument,
+        source: MarketSource,
+        session: URLSession,
+        strings: Strings
+    ) async -> Outcome {
+        var problem = describe(PriceError.noData, strings)
         for host in source.hosts(for: instrument.market) {
             guard let url = tickerURL(source: source, instrument: instrument, host: host) else { continue }
             do {
@@ -158,7 +173,7 @@ public enum PriceAPI {
                     if http.statusCode == 400 {
                         return .absent(id: instrument.id, why: .notListed)
                     }
-                    problem = describe(PriceError.badResponse(http.statusCode))
+                    problem = describe(PriceError.badResponse(http.statusCode), strings)
                     continue
                 }
                 guard let quote = quote(from: data, source: source, instrument: instrument) else {
@@ -166,7 +181,7 @@ public enum PriceAPI {
                 }
                 return .got(quote)
             } catch {
-                problem = describe(error)
+                problem = describe(error, strings)
             }
         }
         return .absent(id: instrument.id, why: .unreachable(problem))
@@ -512,10 +527,11 @@ public enum PriceAPI {
     public static func lookUp(
         code: String,
         source: MarketSource = .binance,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        strings: Strings = Strings()
     ) async -> Reading {
         let ids = Market.allCases.map { Instrument(code: code, market: $0).id }
-        return await read(ids, source: source, session: session)
+        return await read(ids, source: source, session: session, strings: strings)
     }
 }
 
@@ -526,10 +542,11 @@ public enum PriceError: LocalizedError {
     case unreachable(String)
 
     public var errorDescription: String? {
+        let strings = Strings()
         switch self {
-        case .noData: "没有拿到价格数据"
-        case .badResponse(let code): "行情接口返回 HTTP \(code)"
-        case .unreachable(let message): message
+        case .noData: return strings.noData
+        case let .badResponse(code): return strings.badResponse(code)
+        case let .unreachable(message): return message
         }
     }
 }

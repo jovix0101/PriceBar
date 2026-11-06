@@ -5,9 +5,9 @@
 
 需要 macOS 14 以上。安装包 2 MB，装好占 2.8 MB，没有第三方依赖。
 
-**[产品页 →](https://jovix0101.github.io/pricebar/)**（[English](https://jovix0101.github.io/pricebar/en.html)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
+**[产品页 →](https://jovix0101.github.io/pricebar/zh.html)**（[English](https://jovix0101.github.io/pricebar/)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
 
-![面板：每行一个品种，价格、涨跌幅与 24 小时行情线](docs/panel.png)
+![面板：每行一个品种，价格、涨跌幅与 24 小时行情线](docs/panel-zh.png)
 
 ## 装
 
@@ -19,7 +19,7 @@
 ```bash
 ./build.sh                  # build/PriceBar.app 与 build/PriceBar.dmg
 open build/PriceBar.app
-swift test                  # 65 个测试
+swift test                  # 70 个测试
 ```
 
 `./build.sh` 会自动用 Xcode 工具链（`#Preview` 宏需要它）。`NETWORK_TESTS=1 swift test`
@@ -35,8 +35,10 @@ swift test                  # 65 个测试
   黄金 XAU、白银 XAG、美股 AAPL / TSLA / NVDA 等只有永续合约，直接加。合约在面板里标「合约」
 - **⌘,**：设置；**⌘Q**：退出
 
-设置分四页——通用（计价货币 USD / CNY、涨跌颜色、刷新间隔、开机自启）、菜单栏（显示哪些、
+设置分四页——通用（界面语言、计价货币 USD / CNY、涨跌颜色、刷新间隔、开机自启）、菜单栏（显示哪些、
 拖动排序，这个顺序也是面板的顺序；文字颜色）、面板（最多显示几行、点击是否跳转）、数据源与代理。
+
+界面中英双语，默认英文，在通用页第一组切换，选完立刻生效。
 
 ## 结构
 
@@ -51,6 +53,7 @@ Sources/PriceBarCore/       纯逻辑，可测试
   CoinOrder.swift           币种顺序：勾选、拖动、删币之后怎么排
   CoinValidation.swift      添加时的校验：哪个市场有、加哪个、为什么加不了
   ErrorText.swift           网络错误翻成人话
+  Strings.swift             中英两种说法：界面用词、错误、通知
 Sources/PriceBar/           外壳
   main.swift                入口：NSApplication + delegate
   PriceBarApp.swift         AppDelegate：store、主菜单、启动
@@ -62,12 +65,13 @@ Sources/PriceBar/           外壳
   SettingsView.swift        设置窗口
   Sparkline.swift           24 小时行情线
   Store.swift               状态、轮询、写入设置
+  Strings+App.swift         界面自己的词：设置四页、面板、弹窗、菜单
   Notifier.swift            系统通知与权限
   LoginItem.swift           开机自启
-Tests/PriceBarCoreTests/    65 个测试（Swift Testing）
+Tests/PriceBarCoreTests/    70 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
 Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
-Shots/                      产品页上的设置页截图 make-shots.sh
+Shots/                      产品页上的截图 make-shots.sh（中英各一套）
 docs/                       产品页（中/英）与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
 ```

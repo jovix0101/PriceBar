@@ -11,12 +11,16 @@ public enum CoinValidation {
     /// Why the code cannot be added without asking the exchange, or nil when
     /// it is worth asking: a code already on the panel in every market has
     /// nothing left to add.
-    public static func problem(coin: String, existing: [String]) -> String? {
-        if coin.isEmpty { return "请输入代号" }
+    public static func problem(
+        coin: String,
+        existing: [String],
+        strings: Strings = Strings()
+    ) -> String? {
+        if coin.isEmpty { return strings.typeACode }
         let added = Market.allCases.allSatisfy { market in
             existing.contains(Instrument(code: coin, market: market).id)
         }
-        if added { return "已经添加过 \(coin)" }
+        if added { return strings.alreadyAdded(coin) }
         return nil
     }
 
@@ -57,7 +61,8 @@ public enum CoinValidation {
         code: String,
         existing: [String],
         reading: PriceAPI.Reading,
-        source: MarketSource
+        source: MarketSource,
+        strings: Strings = Strings()
     ) -> Decision {
         let listed = Set(reading.quotes.map(\.coin))
         let choices: [Choice] = Market.allCases.compactMap { market in
@@ -77,12 +82,14 @@ public enum CoinValidation {
         let available = choices.filter { $0.state == .available }
         if available.isEmpty {
             if let reason = choices.lazy.compactMap(\.unreachableReason).first {
-                return .problem("连不上 \(source.label)：\(reason)")
+                return .problem(strings.cannotReach(source.label, reason))
             }
             if choices.contains(where: { $0.state == .added }) {
-                return .problem("\(source.label) 只有 \(code) 的\(choices[0].instrument.market.label)，已经添加过")
+                return .problem(strings.onlyOneMarket(
+                    source.label, code, choices[0].instrument.market
+                ))
             }
-            return .problem("\(source.label) 没有 \(code) 的现货或永续合约")
+            return .problem(strings.noSuchMarket(source.label, code))
         }
         if choices.count == 1, let only = available.first {
             return .add(only.instrument)

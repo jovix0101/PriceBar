@@ -55,7 +55,7 @@ private struct Line: Shape {
     }
 }
 
-#Preview("行情线") {
+#Preview("Line") {
     VStack(alignment: .leading, spacing: 8) {
         Sparkline(values: (0..<24).map { 100 + sin(Double($0) / 3) * 6 + Double($0) }, color: .green)
         Sparkline(values: (0..<24).map { 100 - Double($0) * 1.5 }, color: .red)

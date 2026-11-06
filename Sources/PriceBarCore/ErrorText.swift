@@ -7,29 +7,33 @@ import Foundation
 /// to fail" is what a blocked exchange looks like from here, and it reads
 /// like a bug in the app. The codes that a price display actually meets are
 /// named, and anything else is passed through rather than guessed at.
-public func describe(_ error: Error) -> String {
+public func describe(_ error: Error, _ strings: Strings = Strings()) -> String {
     if let priceError = error as? PriceError {
-        return priceError.errorDescription ?? PriceError.noData.localizedDescription
+        switch priceError {
+        case .noData: return strings.noData
+        case let .badResponse(code): return strings.badResponse(code)
+        case let .unreachable(message): return message
+        }
     }
     let nsError = error as NSError
     guard nsError.domain == NSURLErrorDomain else { return nsError.localizedDescription }
 
     switch nsError.code {
     case NSURLErrorTimedOut:
-        return "请求超时，网络可能不通"
+        return strings.timedOut
     case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
-        return "找不到这台服务器，可能被拦住了"
+        return strings.hostNotFound
     case NSURLErrorCannotConnectToHost:
-        return "连不上服务器，可能被拦住了"
+        return strings.cannotConnect
     case NSURLErrorNetworkConnectionLost:
-        return "连接中途断开"
+        return strings.connectionLost
     case NSURLErrorNotConnectedToInternet:
-        return "这台电脑没有连上网"
+        return strings.notOnline
     case NSURLErrorSecureConnectionFailed:
-        return "安全连接失败，域名可能被拦住了"
+        return strings.secureConnectionFailed
     case NSURLErrorCancelled:
-        return "请求已取消"
+        return strings.cancelled
     default:
-        return "\(nsError.localizedDescription)（\(nsError.code)）"
+        return strings.systemError(nsError.localizedDescription, code: nsError.code)
     }
 }

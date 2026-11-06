@@ -150,14 +150,17 @@
     box-shadow: 0 18px 40px -30px rgba(20,24,30,.45);
   }
 
-  .shot-panel { width: 298px; max-width: 100%; }
+  .shot-panel { width: 300px; max-width: 100%; }
 
   /* 设置的四页截在一个位置轮换，高度跟着当前页走 */
   .shots { margin-top: 2px; }
   .shots-track { position: relative; }
   /* 脚本跑起来之前先按最高的一页占住位置，免得内容跳一下 */
   .shots-js .shots-track {
-    aspect-ratio: 380 / 344;
+    /* width 得先定住：只给 height 和 aspect-ratio 时，浏览器会拿高度反推宽度，
+       短的那几页（面板只有 171px 高）就会连图一起缩窄。 */
+    width: 100%;
+    aspect-ratio: 380 / 450;
     transition: height .28s cubic-bezier(.4, 0, .2, 1);
   }
 

@@ -2,6 +2,10 @@ import Testing
 import Foundation
 @testable import PriceBarCore
 
+/// The two languages, for the tests that read a sentence the app says.
+private let en = Strings(.english)
+private let zh = Strings(.chinese)
+
 @Suite("价格与涨跌幅的格式")
 struct FormatTests {
     @Test("小数位数跟着量级走")
@@ -120,7 +124,8 @@ struct AlertEngineTests {
         #expect(engine.evaluate([quote("ETH", 2300, change: -2)]).isEmpty)
         let fired = engine.evaluate([quote("ETH", 2300, change: -6.2)])
         #expect(fired.count == 1)
-        #expect(fired.first?.title == "ETH 24h 跌幅超 5%")
+        #expect(fired.first?.title(zh) == "ETH 24h 跌幅超 5%")
+        #expect(fired.first?.title(en) == "ETH down 5% in 24h")
     }
 
     @Test("通知正文跟随面板的货币")
@@ -130,11 +135,13 @@ struct AlertEngineTests {
             quote: quote("BTC", 90500, change: 2.41),
             value: 90500
         )
-        #expect(alert.body() == "现价 $90,500，24h +2.41%")
-        #expect(alert.body(currency: .cny, rate: 6.67) == "现价 ¥603,635，24h +2.41%")
+        #expect(alert.body(zh) == "现价 $90,500，24h +2.41%")
+        #expect(alert.body(zh, currency: .cny, rate: 6.67) == "现价 ¥603,635，24h +2.41%")
+        #expect(alert.body(en) == "Now $90,500, +2.41% over 24h.")
         // The title names dollars whatever the panel shows: a threshold is
         // always a dollar amount.
-        #expect(alert.title == "BTC 突破 $90,000")
+        #expect(alert.title(zh) == "BTC 突破 $90,000")
+        #expect(alert.title(en) == "BTC above $90,000")
     }
 
     @Test("通知标题说明方向")
@@ -144,14 +151,15 @@ struct AlertEngineTests {
             quote: quote("BTC", 90500),
             value: 90500
         )
-        #expect(above.title == "BTC 突破 $90,000")
+        #expect(above.title(zh) == "BTC 突破 $90,000")
 
         let below = AlertEngine.Alert(
             rule: Rule(coin: "BTC", metric: .price, above: false, threshold: 70000),
             quote: quote("BTC", 69500),
             value: 69500
         )
-        #expect(below.title == "BTC 跌破 $70,000")
+        #expect(below.title(zh) == "BTC 跌破 $70,000")
+        #expect(below.title(en) == "BTC below $70,000")
     }
 
     @Test("规则指向已删除的币种时什么都不做")
@@ -220,6 +228,48 @@ struct SettingsTests {
         let data = try JSONEncoder().encode(settings)
         let back = try JSONDecoder().decode(AppSettings.self, from: data)
         #expect(back == settings)
+    }
+}
+
+@Suite("语言")
+struct LanguageTests {
+    @Test("默认英文")
+    func startsInEnglish() {
+        #expect(AppSettings().language == .english)
+        #expect(Strings().language == .english)
+        #expect(Strings().label(.spot) == "Spot")
+        #expect(Strings(.chinese).label(.spot) == "现货")
+    }
+
+    @Test("语言存得住")
+    func survivesTheFile() throws {
+        var settings = AppSettings()
+        settings.language = .chinese
+        let back = try JSONDecoder().decode(
+            AppSettings.self, from: JSONEncoder().encode(settings)
+        )
+        #expect(back.language == .chinese)
+    }
+
+    @Test("旧设置文件没有语言字段时读英文")
+    func oldFilesReadEnglish() throws {
+        let json = """
+        {"coins":["BTC"],"menuBarCoins":["BTC"],"currency":"usd","interval":10,
+         "changeColors":"greenUp","menuBarTint":"automatic","source":"binance",
+         "proxyMode":"direct","proxyAddress":"","rules":[]}
+        """
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+        #expect(settings.language == .english)
+    }
+
+    @Test("认得的中文与英文各自成套")
+    func bothLanguagesHaveTheirOwnWords() {
+        #expect(Strings(.chinese).label(.perpetual) == "永续合约")
+        #expect(Strings(.english).label(.perpetual) == "Perpetual")
+        #expect(Strings(.chinese).shortLabel(.perpetual) == "合约")
+        #expect(Strings(.english).shortLabel(.perpetual) == "Perp")
+        #expect(Strings(.chinese).proxyNeedsAddress.hasPrefix("请填"))
+        #expect(Strings(.english).proxyNeedsAddress.hasPrefix("Fill in"))
     }
 }
 
@@ -388,8 +438,10 @@ struct CoinValidationTests {
 
     @Test("空输入与现货、合约都加过时不动网络")
     func rejectsBeforeAskingTheExchange() {
-        #expect(CoinValidation.problem(coin: "", existing: ["BTC"]) == "请输入代号")
-        #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "BTC.P"]) == "已经添加过 BTC")
+        #expect(CoinValidation.problem(coin: "", existing: ["BTC"], strings: zh) == "请输入代号")
+        #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "BTC.P"], strings: zh)
+            == "已经添加过 BTC")
+        #expect(CoinValidation.problem(coin: "", existing: ["BTC"], strings: en) == "Type a code.")
         // Spot alone is not everything: the contract may still be added.
         #expect(CoinValidation.problem(coin: "BTC", existing: ["BTC", "ETH"]) == nil)
         #expect(CoinValidation.problem(coin: "SOL", existing: ["BTC"]) == nil)
@@ -402,7 +454,7 @@ struct CoinValidationTests {
     @Test("现货和合约都有时让用户选，现货在前")
     func offersBothMarkets() {
         let decision = CoinValidation.decide(
-            code: "BTC", existing: [], reading: reading(["BTC", "BTC.P"]), source: .binance)
+            code: "BTC", existing: [], reading: reading(["BTC", "BTC.P"]), source: .binance, strings: zh)
         guard case let .choose(choices) = decision else {
             Issue.record("应该让用户选：\(decision)"); return
         }
@@ -414,14 +466,14 @@ struct CoinValidationTests {
     func addsAContractOnlyCode() {
         let decision = CoinValidation.decide(
             code: "XAU", existing: [],
-            reading: reading(["XAU.P"], missing: ["XAU": .notListed]), source: .gate)
+            reading: reading(["XAU.P"], missing: ["XAU": .notListed]), source: .gate, strings: zh)
         #expect(decision == .add(Instrument(code: "XAU", market: .perpetual)))
     }
 
     @Test("现货加过了，合约仍可加，现货显示已添加")
     func showsWhatIsAlreadyAdded() {
         let decision = CoinValidation.decide(
-            code: "BTC", existing: ["BTC"], reading: reading(["BTC", "BTC.P"]), source: .okx)
+            code: "BTC", existing: ["BTC"], reading: reading(["BTC", "BTC.P"]), source: .okx, strings: zh)
         guard case let .choose(choices) = decision else {
             Issue.record("应该让用户选：\(decision)"); return
         }
@@ -432,7 +484,7 @@ struct CoinValidationTests {
     func greysOutAnUnreachableMarket() {
         let decision = CoinValidation.decide(
             code: "BTC", existing: [],
-            reading: reading(["BTC"], missing: ["BTC.P": .unreachable("HTTP 451")]), source: .binance)
+            reading: reading(["BTC"], missing: ["BTC.P": .unreachable("HTTP 451")]), source: .binance, strings: zh)
         guard case let .choose(choices) = decision else {
             Issue.record("应该让用户选：\(decision)"); return
         }
@@ -443,13 +495,13 @@ struct CoinValidationTests {
     func explainsAMissingCode() {
         let decision = CoinValidation.decide(
             code: "NOPE", existing: [],
-            reading: reading([], missing: ["NOPE": .notListed, "NOPE.P": .notListed]), source: .bybit)
+            reading: reading([], missing: ["NOPE": .notListed, "NOPE.P": .notListed]), source: .bybit, strings: zh)
         #expect(decision == .problem("Bybit 没有 NOPE 的现货或永续合约"))
 
         let blocked = CoinValidation.decide(
             code: "XAU", existing: [],
             reading: reading([], missing: ["XAU": .notListed, "XAU.P": .unreachable("请求超时")]),
-            source: .binance)
+            source: .binance, strings: zh)
         #expect(blocked == .problem("连不上 Binance：请求超时"))
     }
 }
@@ -461,8 +513,9 @@ struct InstrumentTests {
         #expect(Instrument(id: "BTC") == Instrument(code: "BTC", market: .spot))
         #expect(Instrument(id: "xau.p") == Instrument(code: "XAU", market: .perpetual))
         #expect(Instrument(code: "aapl", market: .perpetual).id == "AAPL.P")
-        #expect(Instrument(id: "XAU.P").name == "XAU 合约")
-        #expect(Instrument(id: "BTC").name == "BTC")
+        #expect(Instrument(id: "XAU.P").name(zh) == "XAU 合约")
+        #expect(Instrument(id: "XAU.P").name(en) == "XAU Perp")
+        #expect(Instrument(id: "BTC").name(en) == "BTC")
     }
 
     @Test("旧设置里的币种都按现货读")
@@ -542,13 +595,25 @@ struct RuleTextTests {
 struct SourceParsingTests {
     @Test("每家都能给出这个币的合约行情页")
     func contractPages() {
-        #expect(MarketSource.binance.contractPage(for: "BTC")?.absoluteString
+        #expect(MarketSource.binance.contractPage(for: "BTC", language: .chinese)?.absoluteString
             == "https://www.binance.com/zh-CN/futures/BTCUSDT")
-        #expect(MarketSource.gate.contractPage(for: "eth")?.absoluteString
+        #expect(MarketSource.gate.contractPage(for: "eth", language: .chinese)?.absoluteString
             == "https://www.gate.io/zh/futures/USDT/ETH_USDT")
         // OKX 的路径是小写交易对再加一个 -swap，写错一个字母就是 404。
-        #expect(MarketSource.okx.contractPage(for: "Sol")?.absoluteString
+        #expect(MarketSource.okx.contractPage(for: "Sol", language: .chinese)?.absoluteString
             == "https://www.okx.com/zh-hans/trade-swap/sol-usdt-swap")
+        #expect(MarketSource.bybit.contractPage(for: "BTC", language: .chinese)?.absoluteString
+            == "https://www.bybit.com/trade/usdt/BTCUSDT")
+    }
+
+    @Test("合约行情页跟着语言走，默认英文")
+    func contractPagesFollowTheLanguage() {
+        #expect(MarketSource.binance.contractPage(for: "BTC")?.absoluteString
+            == "https://www.binance.com/en/futures/BTCUSDT")
+        #expect(MarketSource.gate.contractPage(for: "eth")?.absoluteString
+            == "https://www.gate.io/futures/USDT/ETH_USDT")
+        #expect(MarketSource.okx.contractPage(for: "Sol")?.absoluteString
+            == "https://www.okx.com/trade-swap/sol-usdt-swap")
         #expect(MarketSource.bybit.contractPage(for: "BTC")?.absoluteString
             == "https://www.bybit.com/trade/usdt/BTCUSDT")
     }
@@ -664,7 +729,7 @@ struct ProxySettingsTests {
         #expect(settings.endpoint?.host == "127.0.0.1")
         #expect(settings.endpoint?.port == 1080)
         #expect(settings.endpoint?.isSocks == false)
-        #expect(settings.problem == nil)
+        #expect(settings.problem() == nil)
     }
 
     @Test("socks5 与 http 分开")
@@ -677,12 +742,14 @@ struct ProxySettingsTests {
 
     @Test("写错了就说清楚怎么写")
     func explainsABadAddress() {
-        #expect(ProxySettings(mode: .custom, address: "").problem == "请填代理地址，例如 http://127.0.0.1:1080")
+        #expect(ProxySettings(mode: .custom, address: "").problem(zh) == "请填代理地址，例如 http://127.0.0.1:1080")
+        #expect(ProxySettings(mode: .custom, address: "").problem(en)
+            == "Fill in the proxy address, for example http://127.0.0.1:1080")
         #expect(ProxySettings(mode: .custom, address: "127.0.0.1").problem != nil)
         #expect(ProxySettings(mode: .custom, address: "ftp://127.0.0.1:1080").problem != nil)
         // The other two modes need no address at all.
-        #expect(ProxySettings(mode: .direct, address: "").problem == nil)
-        #expect(ProxySettings(mode: .system, address: "").problem == nil)
+        #expect(ProxySettings(mode: .direct, address: "").problem() == nil)
+        #expect(ProxySettings(mode: .system, address: "").problem() == nil)
     }
 
     @Test("直连不查系统代理")

@@ -57,6 +57,26 @@ final class Store {
         panelIsOnScreen = false
     }
 
+    /// The language the app is drawn in. A view reads `strings` rather than
+    /// this, so it does not have to know which language it is reading.
+    var language: Language {
+        get { settings.language }
+        set {
+            let changed = settings.language != newValue
+            apply { $0.language = newValue }
+            if changed { languageDidChange?() }
+        }
+    }
+
+    /// Called once the language has changed, for the parts of the app that
+    /// are AppKit's: a menu item's title is written once and stays, so the
+    /// menu bar of the app has to be built again to say its commands in the
+    /// new language. The views need nothing — they read `strings` and redraw.
+    @ObservationIgnored var languageDidChange: (() -> Void)?
+
+    /// Every word the views say, in the language chosen.
+    var strings: Strings { Strings(settings.language) }
+
     var currency: Currency {
         get { settings.currency }
         set { apply { $0.currency = newValue } }
@@ -124,7 +144,7 @@ final class Store {
 
     /// Why the proxy address cannot be used yet, or nil when it can.
     var proxyProblem: String? {
-        ProxySettings(mode: settings.proxyMode, address: settings.proxyAddress).problem
+        ProxySettings(mode: settings.proxyMode, address: settings.proxyAddress).problem(strings)
     }
 
     @ObservationIgnored private var engine: AlertEngine
@@ -179,14 +199,14 @@ final class Store {
     /// The whole label as it will read in the menu bar, coin by coin: what a
     /// screen reader says.
     var menuBarReading: String {
-        MenuBarPrice.reading(MenuBarPrice.labels(for: self))
+        MenuBarPrice.reading(MenuBarPrice.labels(for: self), strings)
     }
 
     /// How the panel's footer names what the menu bar is showing.
     var menuBarSummary: String {
         let shown = menuBarQuotes.map { Instrument(id: $0.coin).code }
-        guard !shown.isEmpty else { return "菜单栏：—" }
-        return "菜单栏：" + shown.joined(separator: "、")
+        guard !shown.isEmpty else { return strings.menuBarSummaryEmpty }
+        return strings.menuBarSummary(shown.joined(separator: strings.listSeparator))
     }
 
     func isOnMenuBar(_ coin: String) -> Bool {
@@ -210,7 +230,9 @@ final class Store {
     /// source the prices come from, so the page shows the market the number
     /// beside it was read from rather than another exchange's.
     func openContract(for coin: String) {
-        guard let page = source.contractPage(for: Instrument(id: coin).code) else { return }
+        guard let page = source.contractPage(
+            for: Instrument(id: coin).code, language: language
+        ) else { return }
         NSWorkspace.shared.open(page)
     }
 
@@ -301,12 +323,14 @@ final class Store {
 
         Task {
             defer { refreshing = false }
-            let reading = await PriceAPI.read(coins, source: source, session: session)
+            let reading = await PriceAPI.read(
+                coins, source: source, session: session, strings: self.strings
+            )
             // Nothing came back and something was out of reach: the source
             // or the proxy is the problem, and the prices in hand are kept
             // rather than wiped for a blank panel.
             if reading.quotes.isEmpty, let reason = reading.unreachable {
-                self.error = "\(source.label)：\(reason)"
+                self.error = self.strings.sourceProblem(source.label, reason)
                 self.errorHint = self.hint(for: source, market: self.unreachableMarket(in: reading))
                 return
             }
@@ -330,15 +354,18 @@ final class Store {
 
     /// What to try next, said in terms of the two things the user can change.
     func hint(for source: MarketSource, market: Market = .spot) -> String {
+        let strings = self.strings
         switch settings.proxyMode {
         case .custom:
-            return "检查代理是否在运行：\(settings.proxyAddress)"
+            return strings.checkProxyRunning(settings.proxyAddress)
         case .direct, .system:
             if source.normallyNeedsProxy(for: market) {
-                let what = market == .perpetual && !source.normallyNeedsProxy ? "\(source.label) 合约" : source.label
-                return "\(what)通常要挂代理才能连上，可以在设置里开启。"
+                let what = market == .perpetual && !source.normallyNeedsProxy
+                    ? strings.sourceContracts(source.label)
+                    : source.label
+                return strings.needsProxyTurnOn(what)
             }
-            return "在设置里换一个数据源试试。"
+            return strings.tryAnotherSource
         }
     }
 
@@ -367,25 +394,28 @@ final class Store {
 
         Task {
             defer { testing = false }
-            let reading = await PriceAPI.read(probes, source: source, session: session)
+            let strings = self.strings
+            let reading = await PriceAPI.read(
+                probes, source: source, session: session, strings: strings
+            )
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             let parts = probes.map { id -> (ok: Bool, text: String) in
                 let instrument = Instrument(id: id)
                 let name = probes.count > 1
-                    ? "\(instrument.market.label) \(instrument.code)"
+                    ? "\(instrument.market.label(strings)) \(instrument.code)"
                     : instrument.code
                 if let quote = reading.quotes.first(where: { $0.coin == id }) {
                     return (true, "\(name) \(money(quote.price))")
                 }
                 switch reading.missing[id] {
                 case let .unreachable(message)?:
-                    return (false, "\(name) 失败：\(message)")
+                    return (false, strings.failedPart(name, message))
                 default:
-                    return (false, "\(name) 有响应，但没有报价")
+                    return (false, strings.answeredNoQuote(name))
                 }
             }
             let ok = parts.allSatisfy(\.ok)
-            let head = ok ? "\(source.label) 正常 · \(ms)ms" : source.label
+            let head = ok ? strings.sourceOK(source.label, ms) : source.label
             connectionTest = ConnectionResult(
                 ok: ok,
                 text: ([head] + parts.map(\.text)).joined(separator: " · ")
@@ -400,8 +430,8 @@ final class Store {
         rules = engine.rules
         for alert in alerts {
             Notifier.send(
-                title: alert.title,
-                body: alert.body(currency: currency, rate: displayRate ?? 1)
+                title: alert.title(strings),
+                body: alert.body(strings, currency: currency, rate: displayRate ?? 1)
             )
         }
     }
@@ -411,12 +441,17 @@ final class Store {
     /// Asks the exchange which of its markets list a code, and decides what
     /// the add popover should do with it.
     func lookUp(_ raw: String) async -> CoinValidation.Decision {
+        let strings = self.strings
         let code = CoinValidation.normalize(raw)
-        if let problem = CoinValidation.problem(coin: code, existing: coins) {
+        if let problem = CoinValidation.problem(coin: code, existing: coins, strings: strings) {
             return .problem(problem)
         }
-        let reading = await PriceAPI.lookUp(code: code, source: source, session: session)
-        return CoinValidation.decide(code: code, existing: coins, reading: reading, source: source)
+        let reading = await PriceAPI.lookUp(
+            code: code, source: source, session: session, strings: strings
+        )
+        return CoinValidation.decide(
+            code: code, existing: coins, reading: reading, source: source, strings: strings
+        )
     }
 
     /// Adds instruments the exchange has said it lists, at the end of the

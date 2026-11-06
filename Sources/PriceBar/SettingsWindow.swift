@@ -50,7 +50,10 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
 /// shows, top edge held still, so a short page is not left standing in a
 /// tall window.
 private final class SettingsTabs: NSTabViewController {
+    private let store: Store
+
     init(store: Store) {
+        self.store = store
         super.init(nibName: nil, bundle: nil)
         tabStyle = .toolbar
         // The window's title names the page it shows.
@@ -60,12 +63,41 @@ private final class SettingsTabs: NSTabViewController {
             // A page grows and shrinks as it is used — the proxy address
             // appears, a note gets a second line — and the window follows.
             hosting.sizingOptions = [.preferredContentSize]
-            hosting.title = page.title
+            hosting.title = page.title(store.strings)
             let item = NSTabViewItem(viewController: hosting)
-            item.label = page.title
-            item.image = NSImage(systemSymbolName: page.symbol, accessibilityDescription: page.title)
+            item.label = page.title(store.strings)
+            item.image = NSImage(
+                systemSymbolName: page.symbol,
+                accessibilityDescription: page.title(store.strings)
+            )
             addTabViewItem(item)
         }
+        watchLanguage()
+    }
+
+    /// The pages read the language themselves, but the toolbar buttons are
+    /// AppKit's and only say what they were last told: they are told again
+    /// whenever the language changes.
+    private func watchLanguage() {
+        withObservationTracking {
+            _ = store.language
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.retitle()
+                self?.watchLanguage()
+            }
+        }
+    }
+
+    private func retitle() {
+        for (index, page) in SettingsPage.allCases.enumerated() {
+            let title = page.title(store.strings)
+            tabViewItems[index].label = title
+            tabViewItems[index].viewController?.title = title
+        }
+        // The window's own title is copied from the page when a tab is
+        // picked, so it is said again here rather than waiting for that.
+        view.window?.title = tabViewItems[selectedTabViewItemIndex].label
     }
 
     @available(*, unavailable)

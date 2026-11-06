@@ -48,7 +48,7 @@ final class StatusItem: NSObject, NSPopoverDelegate {
 
         guard !labels.isEmpty else {
             button.attributedTitle = NSAttributedString(string: "—")
-            button.setAccessibilityLabel("价格")
+            button.setAccessibilityLabel(store.strings.priceAccessibility)
             return
         }
 
@@ -70,6 +70,8 @@ final class StatusItem: NSObject, NSPopoverDelegate {
             _ = store.rate
             _ = store.menuBarTint
             _ = store.changeColors
+            // The reading and the menu are in the language too.
+            _ = store.language
         } onChange: { [weak self] in
             // The change is still being written when this is called, so the
             // redraw waits for the next turn of the run loop.
@@ -128,14 +130,14 @@ final class StatusItem: NSObject, NSPopoverDelegate {
     private func showMenu() {
         let menu = NSMenu()
         let settings = menu.addItem(
-            withTitle: "设置…",
+            withTitle: store.strings.settingsItem,
             action: #selector(openSettings),
             keyEquivalent: ","
         )
         settings.target = self
         menu.addItem(.separator())
         let quit = menu.addItem(
-            withTitle: "退出 PriceBar",
+            withTitle: store.strings.quitItem,
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         )

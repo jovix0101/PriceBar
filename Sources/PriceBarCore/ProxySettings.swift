@@ -6,14 +6,6 @@ public enum ProxyMode: String, Codable, CaseIterable, Sendable {
     case direct
     case system
     case custom
-
-    public var label: String {
-        switch self {
-        case .direct: "直连"
-        case .system: "跟随系统"
-        case .custom: "自定义"
-        }
-    }
 }
 
 /// The proxy the app reads prices through.
@@ -68,13 +60,13 @@ public struct ProxySettings: Equatable, Sendable {
     }
 
     /// Why the address cannot be used, or nil when it can.
-    public var problem: String? {
+    public func problem(_ strings: Strings = Strings()) -> String? {
         guard mode == .custom else { return nil }
         if address.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "请填代理地址，例如 http://127.0.0.1:1080"
+            return strings.proxyNeedsAddress
         }
         guard endpoint != nil else {
-            return "代理地址要写成 http://主机:端口 或 socks5://主机:端口"
+            return strings.proxyNeedsShape
         }
         return nil
     }

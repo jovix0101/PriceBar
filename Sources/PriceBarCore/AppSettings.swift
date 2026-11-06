@@ -23,13 +23,6 @@ public enum ChangeColors: String, Codable, CaseIterable, Sendable {
     case greenUp = "greenUp"
     case redUp = "redUp"
 
-    public var label: String {
-        switch self {
-        case .greenUp: "绿涨红跌"
-        case .redUp: "红涨绿跌"
-        }
-    }
-
     /// Whether this change should be drawn green, or nil when it is too small
     /// to have a side at all.
     ///
@@ -59,15 +52,6 @@ public enum ChangeColors: String, Codable, CaseIterable, Sendable {
 /// tint, because there is nothing to colour.
 public enum MenuBarTint: String, Codable, CaseIterable, Sendable {
     case automatic, dark, light, change
-
-    public var label: String {
-        switch self {
-        case .automatic: "自动"
-        case .dark: "深色"
-        case .light: "浅色"
-        case .change: "随涨跌"
-        }
-    }
 }
 
 /// Everything the app remembers between launches.
@@ -99,6 +83,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var proxyMode: ProxyMode = .direct
     public var proxyAddress: String = ""
     public var rules: [Rule] = []
+    /// The language the app is drawn in. English unless it is changed: the
+    /// app is written in English first and the Chinese is the translation.
+    public var language: Language = .english
 
     public init() {}
 
@@ -106,7 +93,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case coins, menuBarCoins, currency, interval, panelRows, changeColors
         case openContractOnClick
         case menuBarTint
-        case source, proxyMode, proxyAddress, rules
+        case source, proxyMode, proxyAddress, rules, language
         /// Written by versions that had one coin on the menu bar.
         case primary
     }
@@ -125,6 +112,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try container.encode(proxyMode, forKey: .proxyMode)
         try container.encode(proxyAddress, forKey: .proxyAddress)
         try container.encode(rules, forKey: .rules)
+        try container.encode(language, forKey: .language)
     }
 
     /// Reads the settings field by field, so that one field a later version
@@ -148,6 +136,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
         source = (try? container.decode(MarketSource.self, forKey: .source)) ?? defaults.source
         proxyMode = (try? container.decode(ProxyMode.self, forKey: .proxyMode)) ?? defaults.proxyMode
         proxyAddress = (try? container.decode(String.self, forKey: .proxyAddress)) ?? defaults.proxyAddress
+        // A file written before the app had a language was written in
+        // Chinese, but the app is English by default: an old file reads as
+        // English and the switch is right there in the settings.
+        language = (try? container.decode(Language.self, forKey: .language)) ?? defaults.language
 
         // The menu bar coins: an older file names one of them `primary`, and
         // a coin taken off the panel takes its menu bar place with it. An
@@ -215,25 +207,26 @@ public struct AlertEngine {
 
         /// The threshold is in US dollars whatever the panel shows, so the
         /// title names dollars: a rule set at 80000 fires at $80,000.
-        public var title: String {
-            let name = Instrument(id: quote.coin).name
-            switch rule.metric {
-            case .price:
-                return rule.above
-                    ? "\(name) 突破 \(formatMoney(rule.threshold, currency: .usd))"
-                    : "\(name) 跌破 \(formatMoney(rule.threshold, currency: .usd))"
-            case .change:
-                return rule.above
-                    ? "\(name) 24h 涨幅超 \(formatPercent(rule.threshold))"
-                    : "\(name) 24h 跌幅超 \(formatPercent(rule.threshold))"
-            }
+        public func title(_ strings: Strings = Strings()) -> String {
+            strings.alertTitle(
+                name: Instrument(id: quote.coin).name(strings),
+                above: rule.above,
+                metric: rule.metric,
+                threshold: rule.thresholdText
+            )
         }
 
         /// The current price in the currency the panel shows, so that the
         /// notification reads like the panel it describes.
-        public func body(currency: Currency = .usd, rate: Double = 1) -> String {
-            let price = formatMoney(quote.price * rate, currency: currency)
-            return "现价 \(price)，24h \(formatSigned(quote.change))"
+        public func body(
+            _ strings: Strings = Strings(),
+            currency: Currency = .usd,
+            rate: Double = 1
+        ) -> String {
+            strings.alertBody(
+                price: formatMoney(quote.price * rate, currency: currency),
+                change: formatSigned(quote.change)
+            )
         }
     }
 

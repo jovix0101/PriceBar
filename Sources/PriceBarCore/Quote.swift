@@ -21,11 +21,8 @@ public enum Metric: String, Codable, CaseIterable, Sendable {
     /// The 24h change, in percent.
     case change
 
-    public var label: String {
-        switch self {
-        case .price: "价格"
-        case .change: "24h 涨跌幅"
-        }
+    public func label(_ strings: Strings) -> String {
+        strings.label(self)
     }
 
     /// What a threshold of this metric counts, for the field that sets it.
