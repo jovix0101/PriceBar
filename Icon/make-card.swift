@@ -152,11 +152,11 @@ MainActor.assumeIsolated {
     drawCard(
         headline: "Prices in the menu bar.",
         subline: "Crypto, gold, silver, US stocks · 24h chart · alerts",
-        panel: "panel.png", to: "card.png"
+        panel: "panel@2x.png", to: "card.png"
     )
     drawCard(
         headline: "价格，就在菜单栏里。",
         subline: "币、黄金、白银、美股 · 24 小时走势 · 价格提醒",
-        panel: "panel-zh.png", to: "card-zh.png"
+        panel: "panel-zh@2x.png", to: "card-zh.png"
     )
 }

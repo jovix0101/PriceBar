@@ -2,6 +2,18 @@ import AppKit
 import SwiftUI
 import PriceBarCore
 
+/// A window that sits on a display of one fixed scale.
+///
+/// `cacheDisplay` rasterises the view at the window's backing scale, so a
+/// picture is sharp only when that scale is the one the file is for: on a 1×
+/// screen a plain window gives a 1× picture stretched to fill a 2× bitmap, and
+/// the page shows soft text. Fixing the scale here gives the same result on
+/// every Mac, whichever screen the script happens to run on.
+private final class FixedScaleWindow: NSWindow {
+    var scale: CGFloat = 2
+    override var backingScaleFactor: CGFloat { scale }
+}
+
 /// Draws the four settings pages into docs/ as 2× PNGs, for the product page:
 /// once in each language, since the page has one of each and shows the app as
 /// that reader would see it.
@@ -69,7 +81,7 @@ func main() {
         let suffix = language == .english ? "" : "-zh"
 
         for page in SettingsPage.allCases {
-            let name = "settings-\(names[page] ?? String(page.rawValue))\(suffix).png"
+            let name = "settings-\(names[page] ?? String(page.rawValue))\(suffix)"
             snapshot(
                 SettingsView(store: store, page: page),
                 width: 380,
@@ -83,12 +95,14 @@ func main() {
             PanelView(store: store),
             width: nil,
             label: "panel",
-            to: out, name: "panel\(suffix).png"
+            to: out, name: "panel\(suffix)"
         )
     }
 }
 
-/// Draws one view into `out/name.png`, twice the size of the view on screen.
+/// Draws one view into `out/name.png` and `out/name@2x.png`: the size it takes
+/// on screen, and twice that for Retina. The page names both, so each display
+/// gets a picture at its own scale and neither has to resample.
 ///
 /// Through `NSHostingView` rather than `ImageRenderer`: the segmented pickers
 /// and the switch are AppKit controls, and `ImageRenderer` draws them as
@@ -109,7 +123,7 @@ func snapshot(
     hosting.frame = NSRect(x: 0, y: 0, width: width ?? 200, height: 10)
 
     // Light appearance, whatever mode this Mac is in: the page is white.
-    let window = NSWindow(
+    let window = FixedScaleWindow(
         contentRect: hosting.frame,
         styleMask: [.titled], backing: .buffered, defer: false
     )
@@ -125,27 +139,27 @@ func snapshot(
     hosting.layoutSubtreeIfNeeded()
     hosting.displayIfNeeded()
 
-    let scale: CGFloat = 2
-    guard let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
-        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-    ) else {
-        print("no bitmap for \(label)")
-        return
-    }
-    rep.size = size
-    hosting.cacheDisplay(in: hosting.bounds, to: rep)
-    window.setIsVisible(false)
+    for scale in [1, 2] as [CGFloat] {
+        window.scale = scale
+        hosting.layer?.contentsScale = scale
+        hosting.displayIfNeeded()
+        hosting.layoutSubtreeIfNeeded()
 
-    guard let data = rep.representation(using: .png, properties: [:]) else {
-        print("no PNG for \(label)")
-        return
+        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+            print("no bitmap for \(label)")
+            return
+        }
+        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            print("no PNG for \(label)")
+            return
+        }
+        let file = scale == 1 ? "\(name).png" : "\(name)@2x.png"
+        let url = URL(fileURLWithPath: out).appendingPathComponent(file)
+        try? data.write(to: url)
+        print("\(label) -> \(file) \(rep.pixelsWide)×\(rep.pixelsHigh)")
     }
-    let url = URL(fileURLWithPath: out).appendingPathComponent(name)
-    try? data.write(to: url)
-    print("\(label) -> \(url.lastPathComponent) \(rep.pixelsWide)×\(rep.pixelsHigh)")
+    window.setIsVisible(false)
 }
 
 MainActor.assumeIsolated { main() }

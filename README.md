@@ -7,7 +7,7 @@
 
 **[产品页 →](https://jovix0101.github.io/pricebar/zh.html)**（[English](https://jovix0101.github.io/pricebar/)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
 
-![面板：每行一个品种，价格、涨跌幅与 24 小时行情线](docs/panel-zh.png)
+<img src="docs/panel-zh@2x.png" width="300" alt="面板：每行一个品种，价格、涨跌幅与 24 小时行情线">
 
 ## 装
 
@@ -71,7 +71,7 @@ Sources/PriceBar/           外壳
 Tests/PriceBarCoreTests/    70 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
 Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
-Shots/                      产品页上的截图 make-shots.sh（中英各一套）
+Shots/                      产品页上的截图 make-shots.sh（中英各一套，1× 与 @2x）
 docs/                       产品页（中/英）与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
 ```
