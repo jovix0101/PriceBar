@@ -67,6 +67,7 @@ Sources/PriceBar/           外壳
 Tests/PriceBarCoreTests/    65 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
 Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
+Shots/                      产品页上的设置页截图 make-shots.sh
 docs/                       产品页（中/英）与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
 ```
