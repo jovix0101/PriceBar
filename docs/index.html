@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PriceBar — macOS 菜单栏币价与价格提醒</title>
+<title>PriceBar — macOS 菜单栏行情与价格提醒</title>
 <meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种，以及黄金、美股的交易所永续合约，价格钉在菜单栏，点开是面板，有 24 小时行情线与涨跌幅；价格越过设定的线就发系统通知。开源、免费。">
 <link rel="canonical" href="https://jovix0101.github.io/pricebar/">
 <meta name="theme-color" content="#f8f8f7">
@@ -14,14 +14,14 @@
 <meta property="og:site_name" content="PriceBar">
 <meta property="og:locale" content="zh_CN">
 <meta property="og:url" content="https://jovix0101.github.io/pricebar/">
-<meta property="og:title" content="PriceBar — 币价就在菜单栏里">
-<meta property="og:description" content="macOS 菜单栏币价工具：实时价格、24 小时行情线、价格提醒。开源、免费。">
+<meta property="og:title" content="PriceBar — 价格就在菜单栏里">
+<meta property="og:description" content="macOS 菜单栏行情工具：币、黄金、白银、美股永续合约的实时价格、24 小时行情线、价格提醒。开源、免费。">
 <meta property="og:image" content="https://jovix0101.github.io/pricebar/card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="PriceBar — 币价就在菜单栏里">
-<meta name="twitter:description" content="macOS 菜单栏币价工具：实时价格、24 小时行情线、价格提醒。开源、免费。">
+<meta name="twitter:title" content="PriceBar — 价格就在菜单栏里">
+<meta name="twitter:description" content="macOS 菜单栏行情工具：币、黄金、白银、美股永续合约的实时价格、24 小时行情线、价格提醒。开源、免费。">
 <meta name="twitter:image" content="https://jovix0101.github.io/pricebar/card.png">
 
 <script type="application/ld+json">
@@ -31,12 +31,12 @@
   "name": "PriceBar",
   "operatingSystem": "macOS 14+",
   "applicationCategory": "FinanceApplication",
-  "applicationSubCategory": "Cryptocurrency price ticker",
-  "description": "macOS 菜单栏加密货币价格工具：实时价格、24 小时行情线、价格与涨跌幅提醒。",
+  "applicationSubCategory": "Price ticker",
+  "description": "macOS 菜单栏行情工具：币、黄金、白银、美股永续合约的实时价格、24 小时行情线、价格与涨跌幅提醒。",
   "url": "https://jovix0101.github.io/pricebar/",
   "downloadUrl": "https://github.com/jovix0101/pricebar/releases/latest",
   "screenshot": "https://jovix0101.github.io/pricebar/panel.png",
-  "softwareVersion": "0.3.0",
+  "softwareVersion": "0.4.0",
   "license": "https://opensource.org/license/mit",
   "isAccessibleForFree": true,
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -280,10 +280,11 @@
   </header>
 
   <div class="hero">
-    <h1>币价，就在菜单栏里。</h1>
+    <h1>价格，就在菜单栏里。</h1>
     <p class="lede">
-      一个 macOS 小工具。BTC、ETH 或任何 USDT 交易对的价格钉在菜单栏，
-      点开是完整面板：24 小时行情线、涨跌幅、价格提醒。
+      一个 macOS 小工具。BTC、ETH 这些币的现货价，黄金 XAU、白银 XAG 和美股
+      AAPL、NVDA 的交易所永续合约，价格钉在菜单栏，点开是完整面板：
+      24 小时行情线、涨跌幅、价格提醒。
     </p>
 
     <div class="actions">
@@ -297,7 +298,7 @@
       <span class="meta">开源 · MIT · 需要 macOS 14</span>
     </div>
 
-    <div class="menubar" role="img" aria-label="菜单栏示例：BTC $ 80,356 ▲2.39%，ETH $ 2,414 ▲3.92%，SOL $ 96.55 ▼1.20%">
+    <div class="menubar" role="img" aria-label="菜单栏示例：BTC $ 80,356 ▲2.39%，ETH $ 2,414 ▲3.92%，XAU $ 4,118 ▲0.62%，AAPL $ 271.40 ▼0.31%">
       <div class="label">
         <span class="coin">BTC</span><span class="sym">$</span><span>80,356</span><span class="chg">▲2.39%</span>
       </div>
@@ -305,10 +306,13 @@
         <span class="coin">ETH</span><span class="sym">$</span><span>2,414</span><span class="chg">▲3.92%</span>
       </div>
       <div class="label">
-        <span class="coin">SOL</span><span class="sym">$</span><span>96.55</span><span class="chg down">▼1.20%</span>
+        <span class="coin">XAU</span><span class="sym">$</span><span>4,118</span><span class="chg">▲0.62%</span>
+      </div>
+      <div class="label">
+        <span class="coin">AAPL</span><span class="sym">$</span><span>271.40</span><span class="chg down">▼0.31%</span>
       </div>
     </div>
-    <p class="cap">勾选几个币种，就并排显示几个。</p>
+    <p class="cap">勾选几个品种，就并排显示几个。</p>
   </div>
 
   <section>
@@ -319,7 +323,8 @@
         <figcaption class="cap">点开菜单栏图标，每行一个品种：24 小时走势、现价、涨跌幅。</figcaption>
       </figure>
       <ul class="points">
-        <li><b>黄金与美股</b><span>XAU、XAG、AAPL、NVDA 等交易所永续合约，和币放在同一个面板。</span></li>
+        <li><b>币、黄金与美股</b><span>币取现货价；XAU、XAG、AAPL、NVDA 取交易所永续合约，和币放在同一个面板。合约 7×24 交易，美股休市时也在动，价格与正股略有价差。</span></li>
+        <li><b>一个框加品种</b><span>填代号就行，BTC 默认加现货、也能顺手勾上永续合约；合约在面板里标出来。</span></li>
         <li><b>价格提醒</b><span>越过你设的线就发通知，触发后待命，不反复打扰。</span></li>
         <li><b>换数据源</b><span>Binance、Gate、OKX、Bybit 四家，境外网络可挂代理。</span></li>
         <li><b>换货币</b><span>美元与人民币，汇率每天更新一次。</span></li>
