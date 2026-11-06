@@ -15,7 +15,7 @@ struct RulesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("\(coin) 的提醒")
+            Text("\(Instrument(id: coin).name) 的提醒")
                 .font(.headline)
 
             if authorization == .denied {

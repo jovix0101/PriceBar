@@ -9,112 +9,188 @@ import Foundation
 public enum PriceAPI {
     // MARK: - Quotes
 
-    /// Fetches every coin's quote from the exchange, in the order of coins.
-    /// Coins the exchange does not know are left out.
+    /// What a read of the panel's instruments came back with: the prices it
+    /// found, in the order they were asked for, and for each one it did not
+    /// find, why not.
+    public struct Reading: Sendable, Equatable {
+        public var quotes: [Quote]
+        /// Keyed by instrument id. Never holds an id that is in `quotes`.
+        public var missing: [String: Absence]
+
+        public init(quotes: [Quote] = [], missing: [String: Absence] = [:]) {
+            self.quotes = quotes
+            self.missing = missing
+        }
+
+        /// The first reason the exchange could not be reached, if any was.
+        public var unreachable: String? {
+            for case let .unreachable(message) in missing.values { return message }
+            return nil
+        }
+    }
+
+    /// Why an instrument has no price.
+    public enum Absence: Sendable, Equatable {
+        /// The exchange answered, and does not list it on that market.
+        case notListed
+        /// The exchange, or that market of it, could not be reached; the
+        /// reason in words, ready to show.
+        case unreachable(String)
+    }
+
+    /// Reads every instrument from the exchange: spot and perpetuals each
+    /// from their own market, side by side, put back in the order asked.
+    ///
+    /// Never throws: one market out of reach — Binance's contracts without a
+    /// proxy — should not cost the other its prices, so each instrument
+    /// reports for itself.
+    public static func read(
+        _ ids: [String],
+        source: MarketSource = .binance,
+        session: URLSession = .shared
+    ) async -> Reading {
+        let wanted = ids.map(Instrument.init(id:))
+        guard !wanted.isEmpty else { return Reading() }
+        let spot = wanted.filter { $0.market == .spot }
+        let perpetual = wanted.filter { $0.market == .perpetual }
+
+        async let spotOutcomes = outcomes(for: spot, market: .spot, source: source, session: session)
+        async let perpetualOutcomes = outcomes(for: perpetual, market: .perpetual, source: source, session: session)
+        let all = await spotOutcomes + perpetualOutcomes
+
+        var found: [String: Quote] = [:]
+        var missing: [String: Absence] = [:]
+        for outcome in all {
+            switch outcome {
+            case let .got(quote): found[quote.coin] = quote
+            case let .absent(id, why): missing[id] = why
+            }
+        }
+        return Reading(quotes: wanted.compactMap { found[$0.id] }, missing: missing)
+    }
+
+    /// Fetches every instrument's quote, in the order asked. Instruments the
+    /// exchange does not list are left out; when nothing at all comes back,
+    /// it throws why.
     public static func quotes(
-        for coins: [String],
+        for ids: [String],
         source: MarketSource = .binance,
         session: URLSession = .shared
     ) async throws -> [Quote] {
-        let wanted = coins.map { $0.uppercased() }
-        guard !wanted.isEmpty else { return [] }
-
-        if source.answersManyCoinsAtOnce {
-            return try await binanceQuotes(for: wanted, session: session)
+        let reading = await read(ids, source: source, session: session)
+        if reading.quotes.isEmpty, !ids.isEmpty {
+            throw reading.unreachable.map(PriceError.unreachable) ?? PriceError.noData
         }
-        return try await oneByOne(wanted, source: source, session: session)
+        return reading.quotes
     }
 
-    /// What one child of the task group below came back with.
+    /// What one instrument's read came back with.
     ///
     /// A tuple would read the same, but the release optimiser drops the
     /// `for await` body when the element type is a tuple of optionals: the
     /// loop then runs zero times and every quote is lost. A named enum keeps
     /// the loop, and says what each case means.
     private enum Outcome: Sendable {
-        case got(coin: String, quote: Quote)
-        case failed(coin: String, message: String)
+        case got(Quote)
+        case absent(id: String, why: Absence)
     }
 
-    /// Reads one coin per request, side by side, and keeps the order the
-    /// coins were asked for. A coin the exchange does not list is left out —
-    /// one unknown symbol should not cost the others their price.
-    private static func oneByOne(
-        _ coins: [String],
+    /// The instruments of one market: in one request where the exchange
+    /// answers for many at once, one request each otherwise.
+    private static func outcomes(
+        for instruments: [Instrument],
+        market: Market,
         source: MarketSource,
         session: URLSession
-    ) async throws -> [Quote] {
-        var found: [String: Quote] = [:]
-        var lastMessage: String?
-
-        await withTaskGroup(of: Outcome.self) { group in
-            for coin in coins {
-                group.addTask {
-                    do {
-                        return .got(coin: coin, quote: try await quote(coin: coin, source: source, session: session))
-                    } catch {
-                        return .failed(coin: coin, message: error.localizedDescription)
-                    }
-                }
-            }
-            for await outcome in group {
-                switch outcome {
-                case let .got(coin, quote):
-                    found[coin] = quote
-                case let .failed(_, message):
-                    lastMessage = message
-                }
+    ) async -> [Outcome] {
+        guard !instruments.isEmpty else { return [] }
+        if source.answersManyAtOnce(on: market), instruments.count > 1 {
+            switch await binanceBatch(instruments, session: session) {
+            case let .success(quotes):
+                let found = Set(quotes.map(\.coin))
+                return quotes.map(Outcome.got) + instruments
+                    .filter { !found.contains($0.id) }
+                    .map { .absent(id: $0.id, why: .notListed) }
+            case .failure(PriceError.badResponse(400)):
+                // One code Binance does not list turns the whole request
+                // away. Asked one by one, the others still get their price.
+                break
+            case let .failure(error):
+                return instruments.map { .absent(id: $0.id, why: .unreachable(describe(error))) }
             }
         }
-
-        guard !found.isEmpty else {
-            throw PriceError.unreachable(
-                lastMessage ?? PriceError.noData.localizedDescription
-            )
-        }
-        return coins.compactMap { found[$0] }
+        return await oneByOne(instruments, source: source, session: session)
     }
 
-    /// One coin, trying the exchange's hosts in turn.
-    private static func quote(coin: String, source: MarketSource, session: URLSession) async throws -> Quote {
-        var lastError: Error = PriceError.noData
-        for host in source.hosts {
-            guard let url = tickerURL(source: source, coin: coin, host: host) else { continue }
+    /// Reads one instrument per request, side by side.
+    private static func oneByOne(
+        _ instruments: [Instrument],
+        source: MarketSource,
+        session: URLSession
+    ) async -> [Outcome] {
+        await withTaskGroup(of: Outcome.self) { group in
+            for instrument in instruments {
+                group.addTask {
+                    await outcome(of: instrument, source: source, session: session)
+                }
+            }
+            var all: [Outcome] = []
+            for await outcome in group {
+                all.append(outcome)
+            }
+            return all
+        }
+    }
+
+    /// One instrument, trying the market's hosts in turn.
+    ///
+    /// The exchanges turn away a pair they do not list with HTTP 400, or
+    /// answer 200 with nothing in it; anything else — a refused connection,
+    /// a 403 or 451 from a blocked region — is the market being out of
+    /// reach, which a proxy may fix and a different code will not.
+    private static func outcome(of instrument: Instrument, source: MarketSource, session: URLSession) async -> Outcome {
+        var problem = describe(PriceError.noData)
+        for host in source.hosts(for: instrument.market) {
+            guard let url = tickerURL(source: source, instrument: instrument, host: host) else { continue }
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                    lastError = PriceError.badResponse(http.statusCode)
+                    if http.statusCode == 400 {
+                        return .absent(id: instrument.id, why: .notListed)
+                    }
+                    problem = describe(PriceError.badResponse(http.statusCode))
                     continue
                 }
-                if let quote = self.quote(from: data, source: source, coin: coin) {
-                    return quote
+                guard let quote = quote(from: data, source: source, instrument: instrument) else {
+                    return .absent(id: instrument.id, why: .notListed)
                 }
-                lastError = PriceError.noData
+                return .got(quote)
             } catch {
-                lastError = error
+                problem = describe(error)
             }
         }
-        throw lastError
+        return .absent(id: instrument.id, why: .unreachable(problem))
     }
 
-    private static func tickerURL(source: MarketSource, coin: String, host: String) -> URL? {
-        let pair = source.pair(for: coin)
+    private static func tickerURL(source: MarketSource, instrument: Instrument, host: String) -> URL? {
+        let symbol = source.symbol(for: instrument)
+        let perpetual = instrument.market == .perpetual
         var components: URLComponents?
         switch source {
         case .binance:
-            components = URLComponents(string: host + "/api/v3/ticker/24hr")
-            components?.queryItems = [URLQueryItem(name: "symbol", value: pair)]
+            components = URLComponents(string: host + (perpetual ? "/fapi/v1/ticker/24hr" : "/api/v3/ticker/24hr"))
+            components?.queryItems = [URLQueryItem(name: "symbol", value: symbol)]
         case .gate:
-            components = URLComponents(string: host + "/api/v4/spot/tickers")
-            components?.queryItems = [URLQueryItem(name: "currency_pair", value: pair)]
+            components = URLComponents(string: host + (perpetual ? "/api/v4/futures/usdt/tickers" : "/api/v4/spot/tickers"))
+            components?.queryItems = [URLQueryItem(name: perpetual ? "contract" : "currency_pair", value: symbol)]
         case .okx:
             components = URLComponents(string: host + "/api/v5/market/ticker")
-            components?.queryItems = [URLQueryItem(name: "instId", value: pair)]
+            components?.queryItems = [URLQueryItem(name: "instId", value: symbol)]
         case .bybit:
             components = URLComponents(string: host + "/v5/market/tickers")
             components?.queryItems = [
-                URLQueryItem(name: "category", value: "spot"),
-                URLQueryItem(name: "symbol", value: pair),
+                URLQueryItem(name: "category", value: perpetual ? "linear" : "spot"),
+                URLQueryItem(name: "symbol", value: symbol),
             ]
         }
         return components?.url
@@ -129,49 +205,49 @@ public enum PriceAPI {
     }
 
     /// Binance is the one exchange that answers for many pairs at once: one
-    /// request for the whole panel. A single symbol comes back as an object,
-    /// a list of them as an array.
-    private static func binanceQuotes(for coins: [String], session: URLSession) async throws -> [Quote] {
+    /// request for the whole panel's spot coins. A single symbol comes back
+    /// as an object, a list of them as an array.
+    private static func binanceBatch(_ instruments: [Instrument], session: URLSession) async -> Result<[Quote], Error> {
         var lastError: Error = PriceError.noData
 
-        for host in MarketSource.binance.hosts {
+        for host in MarketSource.binance.hosts(for: .spot) {
             guard var components = URLComponents(string: host + "/api/v3/ticker/24hr") else { continue }
-            if coins.count == 1 {
-                components.queryItems = [
-                    URLQueryItem(name: "symbol", value: MarketSource.binance.pair(for: coins[0])),
-                ]
-            } else {
-                // The list has to be percent-encoded by hand: the query is
-                // read as already-encoded by URLComponents, and a pair of
-                // brackets left as they are is a request for nothing.
-                let list = try? JSONSerialization.data(withJSONObject: coins.map { $0 + "USDT" })
-                let encoded = list
-                    .flatMap { String(data: $0, encoding: .utf8) }?
-                    .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "[]"
-                components.percentEncodedQuery = "symbols=" + encoded
-            }
+            // The list has to be percent-encoded by hand: the query is read
+            // as already-encoded by URLComponents, and a pair of brackets
+            // left as they are is a request for nothing.
+            let list = try? JSONSerialization.data(
+                withJSONObject: instruments.map { MarketSource.binance.symbol(for: $0) })
+            let encoded = list
+                .flatMap { String(data: $0, encoding: .utf8) }?
+                .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "[]"
+            components.percentEncodedQuery = "symbols=" + encoded
             guard let url = components.url else { continue }
 
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                     lastError = PriceError.badResponse(http.statusCode)
+                    // A pair it does not list is the same answer from every
+                    // host: no use asking the next.
+                    if http.statusCode == 400 { break }
                     continue
                 }
-                let quotes = try binanceQuotes(from: data, coins: coins)
-                if quotes.isEmpty {
-                    lastError = PriceError.noData
-                    continue
-                }
-                return quotes
+                return .success(try binanceQuotes(from: data, instruments: instruments))
             } catch {
                 lastError = error
             }
         }
-        throw lastError
+        return .failure(lastError)
     }
 
+    /// Spot coins by code, for the tests that predate contracts.
     static func binanceQuotes(from data: Data, coins: [String]) throws -> [Quote] {
+        try binanceQuotes(from: data, instruments: coins.map { Instrument(code: $0, market: .spot) })
+    }
+
+    /// The quotes in a Binance ticker answer, spot or perpetual: the two
+    /// markets name a pair the same way and answer in the same shape.
+    static func binanceQuotes(from data: Data, instruments: [Instrument]) throws -> [Quote] {
         let decoder = JSONDecoder()
         let tickers: [BinanceTicker]
         if let list = try? decoder.decode([BinanceTicker].self, from: data) {
@@ -182,21 +258,25 @@ public enum PriceAPI {
             throw PriceError.noData
         }
 
-        var byCoin: [String: Quote] = [:]
+        var bySymbol: [String: BinanceTicker] = [:]
         for ticker in tickers {
-            let coin = ticker.symbol.uppercased().replacingOccurrences(of: "USDT", with: "")
-            guard let price = Double(ticker.lastPrice) else { continue }
-            byCoin[coin] = Quote(
-                coin: coin,
+            bySymbol[ticker.symbol.uppercased()] = ticker
+        }
+        return instruments.compactMap { instrument in
+            guard let ticker = bySymbol[MarketSource.binance.symbol(for: instrument)],
+                  let price = Double(ticker.lastPrice)
+            else { return nil }
+            return Quote(
+                coin: instrument.id,
                 price: price,
                 change: Double(ticker.priceChangePercent) ?? 0
             )
         }
-        return coins.compactMap { byCoin[$0] }
     }
 
     /// Gate names the pair with an underscore and spells the change as a
-    /// percentage already.
+    /// percentage already. Its spot market calls the pair `currency_pair`,
+    /// its contracts call it `contract`; the rest is the same.
     struct GateTicker: Decodable {
         let pair: String
         let last: String?
@@ -204,17 +284,27 @@ public enum PriceAPI {
 
         enum CodingKeys: String, CodingKey {
             case pair = "currency_pair"
+            case contract
             case last
             case change = "change_percentage"
         }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            pair = try container.decodeIfPresent(String.self, forKey: .pair)
+                ?? container.decode(String.self, forKey: .contract)
+            last = try container.decodeIfPresent(String.self, forKey: .last)
+            change = try container.decodeIfPresent(String.self, forKey: .change)
+        }
     }
 
-    static func gateQuote(from data: Data, coin: String) -> Quote? {
+    static func gateQuote(from data: Data, instrument: Instrument) -> Quote? {
+        let symbol = MarketSource.gate.symbol(for: instrument)
         guard let rows = try? JSONDecoder().decode([GateTicker].self, from: data),
-              let row = rows.first(where: { $0.pair.uppercased() == MarketSource.gate.pair(for: coin) }),
+              let row = rows.first(where: { $0.pair.uppercased() == symbol }),
               let last = row.last, let price = Double(last)
         else { return nil }
-        return Quote(coin: coin.uppercased(), price: price, change: Double(row.change ?? "") ?? 0)
+        return Quote(coin: instrument.id, price: price, change: Double(row.change ?? "") ?? 0)
     }
 
     /// OKX sends no change at all: the 24h change has to be worked out from
@@ -229,14 +319,14 @@ public enum PriceAPI {
         }
     }
 
-    static func okxQuote(from data: Data, coin: String) -> Quote? {
+    static func okxQuote(from data: Data, instrument: Instrument) -> Quote? {
         guard let response = try? JSONDecoder().decode(OKXResponse.self, from: data),
               let ticker = response.data.first,
               let price = Double(ticker.last)
         else { return nil }
         let open = Double(ticker.open24h) ?? 0
         let change = open > 0 ? (price / open - 1) * 100 : 0
-        return Quote(coin: coin.uppercased(), price: price, change: change)
+        return Quote(coin: instrument.id, price: price, change: change)
     }
 
     /// Bybit spells the change as a fraction — -0.0034 is a fall of 0.34%.
@@ -254,30 +344,35 @@ public enum PriceAPI {
         }
     }
 
-    static func bybitQuote(from data: Data, coin: String) -> Quote? {
+    static func bybitQuote(from data: Data, instrument: Instrument) -> Quote? {
         guard let response = try? JSONDecoder().decode(BybitResponse.self, from: data),
               let ticker = response.result.list.first,
               let price = Double(ticker.lastPrice)
         else { return nil }
         return Quote(
-            coin: coin.uppercased(),
+            coin: instrument.id,
             price: price,
             change: (Double(ticker.price24hPcnt) ?? 0) * 100
         )
     }
 
-    /// One coin's quote, read the way its exchange writes it.
-    static func quote(from data: Data, source: MarketSource, coin: String) -> Quote? {
+    /// One instrument's quote, read the way its exchange writes it.
+    static func quote(from data: Data, source: MarketSource, instrument: Instrument) -> Quote? {
         switch source {
         case .binance:
-            return (try? binanceQuotes(from: data, coins: [coin.uppercased()]))?.first
+            return (try? binanceQuotes(from: data, instruments: [instrument]))?.first
         case .gate:
-            return gateQuote(from: data, coin: coin)
+            return gateQuote(from: data, instrument: instrument)
         case .okx:
-            return okxQuote(from: data, coin: coin)
+            return okxQuote(from: data, instrument: instrument)
         case .bybit:
-            return bybitQuote(from: data, coin: coin)
+            return bybitQuote(from: data, instrument: instrument)
         }
+    }
+
+    /// One instrument's quote, named by its id: "BTC", or "XAU.P".
+    static func quote(from data: Data, source: MarketSource, coin: String) -> Quote? {
+        quote(from: data, source: source, instrument: Instrument(id: coin))
     }
 
     // MARK: - The shape of the day
@@ -294,16 +389,17 @@ public enum PriceAPI {
         hours: Int = 24,
         session: URLSession = .shared
     ) async throws -> [Double] {
+        let instrument = Instrument(id: coin)
         var lastError: Error = PriceError.noData
-        for host in source.hosts {
-            guard let url = candlesURL(source: source, coin: coin, host: host, hours: hours) else { continue }
+        for host in source.hosts(for: instrument.market) {
+            guard let url = candlesURL(source: source, instrument: instrument, host: host, hours: hours) else { continue }
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                     lastError = PriceError.badResponse(http.statusCode)
                     continue
                 }
-                let closes = try closes(from: data, source: source)
+                let closes = try closes(from: data, source: source, market: instrument.market)
                 if closes.isEmpty {
                     lastError = PriceError.noData
                     continue
@@ -316,37 +412,38 @@ public enum PriceAPI {
         throw lastError
     }
 
-    private static func candlesURL(source: MarketSource, coin: String, host: String, hours: Int) -> URL? {
-        let pair = source.pair(for: coin)
+    private static func candlesURL(source: MarketSource, instrument: Instrument, host: String, hours: Int) -> URL? {
+        let symbol = source.symbol(for: instrument)
+        let perpetual = instrument.market == .perpetual
         let limit = String(max(2, hours))
         var components: URLComponents?
         switch source {
         case .binance:
-            components = URLComponents(string: host + "/api/v3/klines")
+            components = URLComponents(string: host + (perpetual ? "/fapi/v1/klines" : "/api/v3/klines"))
             components?.queryItems = [
-                URLQueryItem(name: "symbol", value: pair),
+                URLQueryItem(name: "symbol", value: symbol),
                 URLQueryItem(name: "interval", value: "1h"),
                 URLQueryItem(name: "limit", value: limit),
             ]
         case .gate:
-            components = URLComponents(string: host + "/api/v4/spot/candlesticks")
+            components = URLComponents(string: host + (perpetual ? "/api/v4/futures/usdt/candlesticks" : "/api/v4/spot/candlesticks"))
             components?.queryItems = [
-                URLQueryItem(name: "currency_pair", value: pair),
+                URLQueryItem(name: perpetual ? "contract" : "currency_pair", value: symbol),
                 URLQueryItem(name: "interval", value: "1h"),
                 URLQueryItem(name: "limit", value: limit),
             ]
         case .okx:
             components = URLComponents(string: host + "/api/v5/market/candles")
             components?.queryItems = [
-                URLQueryItem(name: "instId", value: pair),
+                URLQueryItem(name: "instId", value: symbol),
                 URLQueryItem(name: "bar", value: "1H"),
                 URLQueryItem(name: "limit", value: limit),
             ]
         case .bybit:
             components = URLComponents(string: host + "/v5/market/kline")
             components?.queryItems = [
-                URLQueryItem(name: "category", value: "spot"),
-                URLQueryItem(name: "symbol", value: pair),
+                URLQueryItem(name: "category", value: perpetual ? "linear" : "spot"),
+                URLQueryItem(name: "symbol", value: symbol),
                 URLQueryItem(name: "interval", value: "60"),
                 URLQueryItem(name: "limit", value: limit),
             ]
@@ -373,7 +470,19 @@ public enum PriceAPI {
     /// prices — so it is read positionally rather than decoded into a type.
     /// OKX and Bybit wrap their rows in an object; Binance and Gate send the
     /// rows alone.
-    static func closes(from data: Data, source: MarketSource) throws -> [Double] {
+    static func closes(from data: Data, source: MarketSource, market: Market = .spot) throws -> [Double] {
+        // Gate's contracts send each candle as an object, the close under
+        // "c", oldest first; its spot market sends arrays like the others.
+        if source == .gate, market == .perpetual {
+            guard let rows = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                throw PriceError.noData
+            }
+            return rows.compactMap { row in
+                if let text = row["c"] as? String { return Double(text) }
+                return row["c"] as? Double
+            }
+        }
+
         let layout = candleLayout(of: source)
         guard let rows = candleRows(from: data) else { throw PriceError.noData }
 
@@ -396,16 +505,17 @@ public enum PriceAPI {
         return nil
     }
 
-    // MARK: - Does the exchange know this coin
+    // MARK: - Does the exchange list this code
 
-    /// Reads one coin once, to check that the exchange knows it.
-    public static func exists(
-        coin: String,
+    /// Asks both markets for a code at once, to see which of them list it:
+    /// what the add-a-coin popover offers to add.
+    public static func lookUp(
+        code: String,
         source: MarketSource = .binance,
         session: URLSession = .shared
-    ) async -> Bool {
-        let quotes = try? await quotes(for: [coin], source: source, session: session)
-        return quotes?.isEmpty == false
+    ) async -> Reading {
+        let ids = Market.allCases.map { Instrument(code: code, market: $0).id }
+        return await read(ids, source: source, session: session)
     }
 }
 

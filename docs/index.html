@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PriceBar — macOS 菜单栏币价与价格提醒</title>
-<meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种的价格钉在菜单栏，点开是面板，有 24 小时行情线与涨跌幅；价格越过设定的线就发系统通知。开源、免费。">
+<meta name="description" content="一个 macOS 菜单栏小工具：BTC、ETH 等币种，以及黄金、美股的交易所永续合约，价格钉在菜单栏，点开是面板，有 24 小时行情线与涨跌幅；价格越过设定的线就发系统通知。开源、免费。">
 <link rel="canonical" href="https://jovix0101.github.io/pricebar/">
 <meta name="theme-color" content="#f8f8f7">
 <link rel="apple-touch-icon" href="icon.png">
@@ -198,7 +198,7 @@
     box-shadow: 0 18px 40px -30px rgba(20,24,30,.45);
   }
 
-  .shot-panel { width: 280px; max-width: 100%; }
+  .shot-panel { width: 298px; max-width: 100%; }
   /* 2× 渲染的截图按 1× 大小显示：Retina 上依然清晰，又不至于占满一屏 */
   .shot-settings { width: 380px; max-width: 100%; }
 
@@ -314,11 +314,12 @@
   <section>
     <div class="pair">
       <figure>
-        <img class="shot shot-panel" src="panel.png" width="560" height="234" loading="lazy"
-             alt="PriceBar 面板：BTC、ETH、SOL 三行，各自带 24 小时行情线、美元价格与涨跌幅">
-        <figcaption class="cap">点开菜单栏图标，每行一个币种：24 小时走势、现价、涨跌幅。</figcaption>
+        <img class="shot shot-panel" src="panel.png" width="596" height="286" loading="lazy"
+             alt="PriceBar 面板：BTC、ETH 现货，黄金 XAU 与苹果 AAPL 的永续合约，各自带 24 小时行情线、美元价格与涨跌幅">
+        <figcaption class="cap">点开菜单栏图标，每行一个品种：24 小时走势、现价、涨跌幅。</figcaption>
       </figure>
       <ul class="points">
+        <li><b>黄金与美股</b><span>XAU、XAG、AAPL、NVDA 等交易所永续合约，和币放在同一个面板。</span></li>
         <li><b>价格提醒</b><span>越过你设的线就发通知，触发后待命，不反复打扰。</span></li>
         <li><b>换数据源</b><span>Binance、Gate、OKX、Bybit 四家，境外网络可挂代理。</span></li>
         <li><b>换货币</b><span>美元与人民币，汇率每天更新一次。</span></li>
@@ -329,9 +330,9 @@
   <section>
     <h2>设置</h2>
     <figure>
-      <img class="shot shot-settings" src="settings.png" width="760" height="1554" loading="lazy"
-           alt="PriceBar 设置窗口：计价货币、刷新间隔、菜单栏显示哪些币种、数据源与代理、开机自启">
-      <figcaption class="cap">能改的东西都在这一屏：货币、刷新间隔、菜单栏币种与顺序、数据源与代理、开机自启。</figcaption>
+      <img class="shot shot-settings" src="settings.png" width="760" height="580" loading="lazy"
+           alt="PriceBar 设置的菜单栏页：勾选显示哪些品种、拖动排序、文字颜色与预览">
+      <figcaption class="cap">设置分四页：通用、菜单栏、面板、数据源。这是菜单栏页：勾选、拖动排序、选文字颜色。</figcaption>
     </figure>
   </section>
 

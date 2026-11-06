@@ -36,6 +36,16 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Whether this market of the exchange was unreachable without a proxy.
+    /// Binance serves its spot prices from a host of their own that most
+    /// networks reach; its contracts have no such host.
+    public func normallyNeedsProxy(for market: Market) -> Bool {
+        switch (self, market) {
+        case (.binance, .perpetual): true
+        default: normallyNeedsProxy
+        }
+    }
+
     /// The pair the exchange names this coin by. Every exchange writes the
     /// same pair differently, which is the whole reason this lives here.
     public func pair(for coin: String) -> String {
@@ -44,6 +54,17 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
         case .binance, .bybit: return upper + "USDT"
         case .gate: return upper + "_USDT"
         case .okx: return upper + "-USDT"
+        }
+    }
+
+    /// The exchange's name for this instrument. A perpetual is named like
+    /// the spot pair everywhere but OKX, which adds "-SWAP": the market is
+    /// told apart by the address it is asked at, not by the name.
+    public func symbol(for instrument: Instrument) -> String {
+        let pair = pair(for: instrument.code)
+        switch (self, instrument.market) {
+        case (.okx, .perpetual): return pair + "-SWAP"
+        default: return pair
         }
     }
 
@@ -69,21 +90,24 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
         return URL(string: address)
     }
 
-    /// The hosts serving this exchange, tried in order. Binance keeps a host
-    /// for public data alone, which some networks reach when they refuse the
-    /// trading host.
-    var hosts: [String] {
-        switch self {
-        case .binance: ["https://data-api.binance.vision", "https://api.binance.com"]
-        case .gate: ["https://api.gateio.ws"]
-        case .okx: ["https://www.okx.com"]
-        case .bybit: ["https://api.bybit.com"]
+    /// The hosts serving one market of this exchange, tried in order.
+    /// Binance keeps a host for public spot data alone, which some networks
+    /// reach when they refuse the trading host, and its contracts on a host
+    /// of their own.
+    func hosts(for market: Market) -> [String] {
+        switch (self, market) {
+        case (.binance, .spot): ["https://data-api.binance.vision", "https://api.binance.com"]
+        case (.binance, .perpetual): ["https://fapi.binance.com"]
+        case (.gate, _): ["https://api.gateio.ws"]
+        case (.okx, _): ["https://www.okx.com"]
+        case (.bybit, _): ["https://api.bybit.com"]
         }
     }
 
     /// Whether the exchange answers for many coins at once. Only Binance
-    /// does; the others take one request per coin, made side by side.
-    var answersManyCoinsAtOnce: Bool {
-        self == .binance
+    /// does, and only on its spot market; everything else takes one request
+    /// per coin, made side by side.
+    func answersManyAtOnce(on market: Market) -> Bool {
+        self == .binance && market == .spot
     }
 }

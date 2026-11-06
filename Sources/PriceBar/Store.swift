@@ -18,6 +18,11 @@ struct ConnectionResult: Equatable, Sendable {
 @Observable
 final class Store {
     private(set) var quotes: [Quote] = []
+    /// The panel's instruments the last read found no price for, and why:
+    /// a code the exchange does not list, or a market out of reach. Shown
+    /// as rows of their own, so that a contract does not vanish from the
+    /// panel when its market cannot be reached.
+    private(set) var missing: [String: PriceAPI.Absence] = [:]
     private(set) var error: String?
     /// What to do about `error`. A failed read is the one place where the
     /// source and the proxy are worth naming, because they are the two things
@@ -140,10 +145,12 @@ final class Store {
         quotes: [Quote] = [],
         rate: Double? = nil,
         error: String? = nil,
-        lines: [String: [Double]] = [:]
+        lines: [String: [Double]] = [:],
+        missing: [String: PriceAPI.Absence] = [:]
     ) {
         self.settings = settings
         self.quotes = quotes
+        self.missing = missing
         self.rate = rate
         self.error = error
         self.lines = lines
@@ -152,6 +159,12 @@ final class Store {
     }
 
     // MARK: - What the views read
+
+    /// Whether any instrument on the panel is a contract: the panel then
+    /// makes room for the tag that says so.
+    var hasContracts: Bool {
+        coins.contains { Instrument(id: $0).market == .perpetual }
+    }
 
     /// The coins the menu bar has to show, in the order the panel lists them.
     /// A coin whose price has not arrived is skipped rather than shown blank.
@@ -171,7 +184,7 @@ final class Store {
 
     /// How the panel's footer names what the menu bar is showing.
     var menuBarSummary: String {
-        let shown = menuBarQuotes.map(\.coin)
+        let shown = menuBarQuotes.map { Instrument(id: $0.coin).code }
         guard !shown.isEmpty else { return "菜单栏：—" }
         return "菜单栏：" + shown.joined(separator: "、")
     }
@@ -197,7 +210,7 @@ final class Store {
     /// source the prices come from, so the page shows the market the number
     /// beside it was read from rather than another exchange's.
     func openContract(for coin: String) {
-        guard let page = source.contractPage(for: coin) else { return }
+        guard let page = source.contractPage(for: Instrument(id: coin).code) else { return }
         NSWorkspace.shared.open(page)
     }
 
@@ -288,33 +301,52 @@ final class Store {
 
         Task {
             defer { refreshing = false }
-            do {
-                let quotes = try await PriceAPI.quotes(for: coins, source: source, session: session)
-                self.quotes = quotes
-                self.error = nil
-                self.errorHint = nil
-                self.checkAlerts(quotes)
-            } catch {
-                self.error = "\(source.label)：\(describe(error))"
-                self.errorHint = self.hint(for: source)
+            let reading = await PriceAPI.read(coins, source: source, session: session)
+            // Nothing came back and something was out of reach: the source
+            // or the proxy is the problem, and the prices in hand are kept
+            // rather than wiped for a blank panel.
+            if reading.quotes.isEmpty, let reason = reading.unreachable {
+                self.error = "\(source.label)：\(reason)"
+                self.errorHint = self.hint(for: source, market: self.unreachableMarket(in: reading))
+                return
             }
+            self.quotes = reading.quotes
+            self.missing = reading.missing
+            self.error = nil
+            self.errorHint = nil
+            self.checkAlerts(reading.quotes)
         }
     }
 
+    /// The market a read could not reach, for the hint: Binance's contracts
+    /// want a proxy where its spot prices do not.
+    private func unreachableMarket(in reading: PriceAPI.Reading) -> Market {
+        let ids = reading.missing.compactMap { id, why in
+            if case .unreachable = why { return id }
+            return nil
+        }
+        return ids.allSatisfy { Instrument(id: $0).market == .perpetual } ? .perpetual : .spot
+    }
+
     /// What to try next, said in terms of the two things the user can change.
-    private func hint(for source: MarketSource) -> String {
+    func hint(for source: MarketSource, market: Market = .spot) -> String {
         switch settings.proxyMode {
         case .custom:
             return "检查代理是否在运行：\(settings.proxyAddress)"
         case .direct, .system:
-            return source.normallyNeedsProxy
-                ? "\(source.label) 通常要挂代理才能连上，可以在设置里开启。"
-                : "在设置里换一个数据源试试。"
+            if source.normallyNeedsProxy(for: market) {
+                let what = market == .perpetual && !source.normallyNeedsProxy ? "\(source.label) 合约" : source.label
+                return "\(what)通常要挂代理才能连上，可以在设置里开启。"
+            }
+            return "在设置里换一个数据源试试。"
         }
     }
 
-    /// Reads one coin through the current source and proxy, and reports what
-    /// came back: the one way to tell a blocked source from a wrong address.
+    /// Reads one instrument of each market on the panel through the current
+    /// source and proxy, and reports what came back: the one way to tell a
+    /// blocked source from a wrong address. Both markets are tried when both
+    /// are in use, because Binance's contracts can be blocked where its spot
+    /// prices are not.
     func testConnection() {
         if let problem = proxyProblem {
             connectionTest = ConnectionResult(ok: false, text: problem)
@@ -326,31 +358,38 @@ final class Store {
         connectionTest = nil
         let source = source
         let session = session
-        let coin = coins.first ?? "BTC"
+        let instruments = coins.map(Instrument.init(id:))
+        var probes = Market.allCases.compactMap { market in
+            instruments.first { $0.market == market }?.id
+        }
+        if probes.isEmpty { probes = ["BTC"] }
         let started = Date()
 
         Task {
             defer { testing = false }
-            do {
-                let quotes = try await PriceAPI.quotes(for: [coin], source: source, session: session)
-                let ms = Int(Date().timeIntervalSince(started) * 1000)
-                if let quote = quotes.first {
-                    connectionTest = ConnectionResult(
-                        ok: true,
-                        text: "\(source.label) 正常 · \(ms)ms · \(coin) \(money(quote.price))"
-                    )
-                } else {
-                    connectionTest = ConnectionResult(
-                        ok: false,
-                        text: "\(source.label) 有响应，但没有 \(coin) 的报价"
-                    )
+            let reading = await PriceAPI.read(probes, source: source, session: session)
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            let parts = probes.map { id -> (ok: Bool, text: String) in
+                let instrument = Instrument(id: id)
+                let name = probes.count > 1
+                    ? "\(instrument.market.label) \(instrument.code)"
+                    : instrument.code
+                if let quote = reading.quotes.first(where: { $0.coin == id }) {
+                    return (true, "\(name) \(money(quote.price))")
                 }
-            } catch {
-                connectionTest = ConnectionResult(
-                    ok: false,
-                    text: "\(source.label) 失败：\(describe(error))"
-                )
+                switch reading.missing[id] {
+                case let .unreachable(message)?:
+                    return (false, "\(name) 失败：\(message)")
+                default:
+                    return (false, "\(name) 有响应，但没有报价")
+                }
             }
+            let ok = parts.allSatisfy(\.ok)
+            let head = ok ? "\(source.label) 正常 · \(ms)ms" : source.label
+            connectionTest = ConnectionResult(
+                ok: ok,
+                text: ([head] + parts.map(\.text)).joined(separator: " · ")
+            )
         }
     }
 
@@ -369,23 +408,29 @@ final class Store {
 
     // MARK: - Coins
 
-    /// Adds a coin the exchange knows, and reports why it could not.
-    func addCoin(_ raw: String) async -> String? {
-        let coin = CoinValidation.normalize(raw)
-        if let problem = CoinValidation.problem(coin: coin, existing: coins) {
-            return problem
+    /// Asks the exchange which of its markets list a code, and decides what
+    /// the add popover should do with it.
+    func lookUp(_ raw: String) async -> CoinValidation.Decision {
+        let code = CoinValidation.normalize(raw)
+        if let problem = CoinValidation.problem(coin: code, existing: coins) {
+            return .problem(problem)
         }
-        let known = await PriceAPI.exists(coin: coin, source: source, session: session)
-        if let problem = CoinValidation.problem(coin: coin, knownToExchange: known) {
-            return problem
-        }
-        coins.append(coin)
-        return nil
+        let reading = await PriceAPI.lookUp(code: code, source: source, session: session)
+        return CoinValidation.decide(code: code, existing: coins, reading: reading, source: source)
+    }
+
+    /// Adds instruments the exchange has said it lists, at the end of the
+    /// panel, spot before contract.
+    func add(_ instruments: [Instrument]) {
+        let new = instruments.map(\.id).filter { !coins.contains($0) }
+        guard !new.isEmpty else { return }
+        coins.append(contentsOf: new)
     }
 
     func removeCoin(_ coin: String) {
         coins.removeAll { $0 == coin }
         rules.removeAll { $0.coin == coin }
+        missing[coin] = nil
         lines[coin] = nil
         linesReadAt[coin] = nil
     }
@@ -449,6 +494,7 @@ final class Store {
             // A day of candles from another exchange is another shape.
             lines.removeAll()
             linesReadAt.removeAll()
+            missing.removeAll()
             connectionTest = nil
             // The panel is already open, so nothing will ask for the lines
             // again until it is reopened: ask now, on the new source.

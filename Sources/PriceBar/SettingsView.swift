@@ -239,8 +239,13 @@ private struct MenuBarSettings: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
-            Text(coin)
+            Text(Instrument(id: coin).code)
                 .font(.system(size: 12, weight: .medium))
+            if Instrument(id: coin).market == .perpetual {
+                Text(Market.perpetual.label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
             Spacer(minLength: 4)
             Button {
                 store.toggleMenuBar(coin)
@@ -250,7 +255,7 @@ private struct MenuBarSettings: View {
                     .foregroundStyle(on ? Color.accentColor : Color.secondary.opacity(0.55))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(coin) 显示在菜单栏")
+            .accessibilityLabel("\(Instrument(id: coin).name) 显示在菜单栏")
             .accessibilityValue(on ? "已选" : "未选")
         }
         .padding(.horizontal, 5)
@@ -264,7 +269,7 @@ private struct MenuBarSettings: View {
             dragging = coin
             return NSItemProvider(object: coin as NSString)
         } preview: {
-            Text(coin)
+            Text(Instrument(id: coin).name)
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -479,6 +484,8 @@ private struct SourceSettings: View {
                 noteText(result.text, color: result.ok ? .secondary : .red)
             } else if store.source.normallyNeedsProxy {
                 noteText("\(store.source.label) 通常要挂代理才能连上，先测一次再决定。")
+            } else if store.hasContracts, store.source.normallyNeedsProxy(for: .perpetual) {
+                noteText("\(store.source.label) 的现货能直连，合约通常要挂代理，先测一次再决定。")
             } else {
                 noteText("代理只作用于当前选中的数据源。")
             }
