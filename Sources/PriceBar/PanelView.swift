@@ -121,7 +121,7 @@ struct PanelView: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Button {
-                store.refresh()
+                store.refresh(all: true)
             } label: {
                 Image(systemName: "arrow.clockwise")
             }

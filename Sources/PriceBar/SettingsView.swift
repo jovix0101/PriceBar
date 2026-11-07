@@ -126,7 +126,9 @@ private struct GeneralSettings: View {
                     .frame(width: controlWidth)
                 }
             } note: {
-                noteText(strings.linesNote)
+                noteText(store.source.pushesPrices
+                    ? strings.pushNote + "\n" + strings.linesNote
+                    : strings.linesNote)
             }
 
             settingsGroup(strings.startupGroup) {

@@ -12,6 +12,7 @@ public func describe(_ error: Error, _ strings: Strings = Strings()) -> String {
         switch priceError {
         case .noData: return strings.noData
         case let .badResponse(code): return strings.badResponse(code)
+        case let .rateLimited(code, seconds): return strings.rateLimited(code, seconds)
         case let .unreachable(message): return message
         }
     }

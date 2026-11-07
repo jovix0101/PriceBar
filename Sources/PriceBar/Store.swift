@@ -46,6 +46,10 @@ final class Store {
     /// knows when it opens and closes.
     private(set) var panelIsOnScreen = false
 
+    /// Each reconnect gets a number, so a slow reset for an older proxy
+    /// change cannot wipe the cooldown the new one has just earned.
+    private var reconnectGeneration = 0
+
     /// The panel opened: it wants its lines.
     func panelOpened() {
         guard !panelIsOnScreen else { return }
@@ -157,6 +161,19 @@ final class Store {
     /// a few minutes old is still true.
     @ObservationIgnored private var linesReadAt: [String: Date] = [:]
     @ObservationIgnored private var readingLines = false
+
+    /// The held connections the exchange pushes prices over. Only an app that has
+    /// started opens one: a preview or a test never touches the network.
+    @ObservationIgnored private var stream: PriceStream?
+    @ObservationIgnored private var streamEvents: Task<Void, Never>?
+    @ObservationIgnored private var started = false
+    /// The coins whose connection is open now. Polling leaves them alone.
+    @ObservationIgnored private var live: Set<String> = []
+    /// When each coin's price last arrived, by either road.
+    @ObservationIgnored private var seen: [String: Date] = [:]
+    /// When the exchange last said it does not list a coin.
+    @ObservationIgnored private var notListedAt: [String: Date] = [:]
+    @ObservationIgnored private var wakeObserver: NSObjectProtocol?
 
     /// Loads the settings the app remembers. A preview, or a test, gives them
     /// its own, with prices to show and no network behind them.
@@ -286,13 +303,78 @@ final class Store {
     // MARK: - Reading prices
 
     func start() {
+        guard !started else { return }
+        started = true
         // Read the rate first, so that a panel in yuan shows numbers rather
         // than dashes from the first frame with prices in it.
         Task {
             await loadRate()
-            refresh()
+            refresh(all: true)
         }
         schedule()
+        openStream()
+        // A Mac that slept has a connection that only looks open.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.woke() }
+        }
+    }
+
+    // MARK: - Pushed prices
+
+    /// Opens the connection for the coins on the panel, in place of any
+    /// connection already open. A source that does not push is polled only.
+    private func openStream() {
+        closeStream()
+        guard started, source.pushesPrices, proxyProblem == nil, !coins.isEmpty else { return }
+        let stream = PriceStream(
+            source: source,
+            instruments: coins.map(Instrument.init(id:)),
+            proxy: ProxySettings(mode: settings.proxyMode, address: settings.proxyAddress)
+        )
+        self.stream = stream
+        streamEvents = Task { [weak self] in
+            await stream.start()
+            for await event in stream.events {
+                self?.receive(event, from: stream)
+            }
+        }
+    }
+
+    private func closeStream() {
+        streamEvents?.cancel()
+        streamEvents = nil
+        live.removeAll()
+        if let old = stream {
+            stream = nil
+            Task { await old.stop() }
+        }
+    }
+
+    private func receive(_ event: PriceStream.Event, from source: PriceStream) {
+        guard source === stream else { return }
+        switch event {
+        case let .live(ids, up):
+            if up { live.formUnion(ids) } else { live.subtract(ids) }
+        case let .quotes(incoming):
+            let now = Date()
+            for quote in incoming {
+                seen[quote.coin] = now
+                notListedAt[quote.coin] = nil
+            }
+            (quotes, missing) = ReadPlan.pushed(incoming, coins: coins, quotes: quotes, missing: missing)
+            error = nil
+            errorHint = nil
+            checkAlerts(incoming)
+        }
+    }
+
+    private func woke() {
+        guard let stream else { return }
+        live.removeAll()
+        Task { await stream.reconnect() }
+        refresh(all: true)
     }
 
     private func loadRate() async {
@@ -308,7 +390,10 @@ final class Store {
         }
     }
 
-    func refresh() {
+    /// Reads prices over HTTP. The timer asks only about coins the
+    /// connection is not covering; the refresh button, `all`, asks about
+    /// every coin once.
+    func refresh(all: Bool = false) {
         guard !refreshing else { return }
         if let problem = proxyProblem {
             error = problem
@@ -316,29 +401,56 @@ final class Store {
             return
         }
 
-        refreshing = true
         let coins = coins
+        let live = all ? [] : self.live
+        let asked = ReadPlan.coins(coins, live: live, seen: seen, notListed: notListedAt, now: Date())
+        guard !asked.isEmpty else { return }
+
+        refreshing = true
         let source = source
         let session = session
+        let generation = reconnectGeneration
 
         Task {
             defer { refreshing = false }
             let reading = await PriceAPI.read(
-                coins, source: source, session: session, strings: self.strings
+                asked, source: source, session: session, strings: self.strings
             )
-            // Nothing came back and something was out of reach: the source
-            // or the proxy is the problem, and the prices in hand are kept
-            // rather than wiped for a blank panel.
-            if reading.quotes.isEmpty, let reason = reading.unreachable {
+            // Settings changed while this read was out: its answer is about
+            // a source or a proxy that is no longer in use.
+            guard generation == self.reconnectGeneration else { return }
+            let live = self.live
+            // Nothing came back, something was out of reach, and no
+            // connection is carrying prices: the source or the proxy is the
+            // problem, and the prices in hand are kept rather than wiped for
+            // a blank panel.
+            if reading.quotes.isEmpty, let reason = reading.unreachable, live.isDisjoint(with: coins) {
                 self.error = self.strings.sourceProblem(source.label, reason)
-                self.errorHint = self.hint(for: source, market: self.unreachableMarket(in: reading))
+                self.errorHint = self.isRateLimit(reading)
+                    ? self.strings.rateLimitedHint
+                    : self.hint(for: source, market: self.unreachableMarket(in: reading))
                 return
             }
-            self.quotes = reading.quotes
-            self.missing = reading.missing
+            let now = Date()
+            for quote in reading.quotes { self.seen[quote.coin] = now }
+            for (coin, why) in reading.missing where why == .notListed { self.notListedAt[coin] = now }
+            (self.quotes, self.missing) = ReadPlan.merged(
+                coins: self.coins, asked: asked, reading: reading,
+                quotes: self.quotes, missing: self.missing, live: live
+            )
             self.error = nil
             self.errorHint = nil
             self.checkAlerts(reading.quotes)
+        }
+    }
+
+    /// A limit is not a broken proxy. The usual hint tells the user to go
+    /// check the proxy; changing it would clear the cooldown and walk
+    /// straight back into a ban that is still running.
+    private func isRateLimit(_ reading: PriceAPI.Reading) -> Bool {
+        reading.missing.values.contains { why in
+            guard case let .unreachable(message) = why else { return false }
+            return message.contains("HTTP 429") || message.contains("HTTP 418")
         }
     }
 
@@ -408,6 +520,10 @@ final class Store {
                     return (true, "\(name) \(money(quote.price))")
                 }
                 switch reading.missing[id] {
+                case let .unreachable(message)? where live.contains(id):
+                    // The prices on the panel come over the connection; a
+                    // limit on the HTTP side does not stop them.
+                    return (true, strings.liveButReadFailed(name, message))
                 case let .unreachable(message)?:
                     return (false, strings.failedPart(name, message))
                 default:
@@ -468,6 +584,8 @@ final class Store {
         missing[coin] = nil
         lines[coin] = nil
         linesReadAt[coin] = nil
+        seen[coin] = nil
+        notListedAt[coin] = nil
     }
 
     // MARK: - Rules
@@ -511,9 +629,12 @@ final class Store {
 
         // Reordering is not a new set of coins: nothing has to be read again.
         let reread = Set(after.coins) != Set(before.coins)
-        let reconnect = after.source != before.source
-            || after.proxyMode != before.proxyMode
+        // Only a new proxy means a new exit IP. A different exchange has
+        // its own cooldown slot, so switching there must not forget a ban
+        // that is still running on this one.
+        let proxyChanged = after.proxyMode != before.proxyMode
             || after.proxyAddress != before.proxyAddress
+        let reconnect = after.source != before.source || proxyChanged
         let reschedule = after.interval != before.interval
         let needRate = after.currency == .cny && rate == nil
 
@@ -525,18 +646,38 @@ final class Store {
         }
 
         if reconnect {
+            reconnectGeneration += 1
             session = ProxySettings(mode: after.proxyMode, address: after.proxyAddress).session()
             // A day of candles from another exchange is another shape.
             lines.removeAll()
             linesReadAt.removeAll()
             missing.removeAll()
+            seen.removeAll()
+            notListedAt.removeAll()
             connectionTest = nil
-            // The panel is already open, so nothing will ask for the lines
-            // again until it is reopened: ask now, on the new source.
-            if panelIsOnScreen { loadLines(force: true) }
         }
+        // A connection carries a fixed set of coins from one source, the
+        // way the proxy settings said when it opened.
+        if (reconnect || reread) && !proxyChanged { openStream() }
+        if proxyChanged { closeStream() }
         if reschedule { schedule() }
         if needRate { Task { await loadRate() } }
-        if reread || reconnect { refresh() }
+
+        if proxyChanged {
+            // A different proxy is a different exit IP: the old ban says
+            // nothing about it. Clear the cooldown before asking anything,
+            // including the candles a panel already open wants again.
+            let generation = reconnectGeneration
+            Task { @MainActor in
+                guard generation == self.reconnectGeneration else { return }
+                await RequestPacing.shared.reset()
+                guard generation == self.reconnectGeneration else { return }
+                openStream()
+                if panelIsOnScreen { loadLines(force: true) }
+                refresh(all: true)
+            }
+        } else if reread || reconnect {
+            refresh()
+        }
     }
 }

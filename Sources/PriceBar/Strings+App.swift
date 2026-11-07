@@ -59,6 +59,10 @@ extension Strings {
         pick("\(seconds) s", "\(seconds) 秒")
     }
     var oneMinuteLabel: String { pick("1 min", "1 分钟") }
+    var pushNote: String {
+        pick("Prices are pushed live; the interval covers any gap in the push and quiet markets.",
+             "价格实时推送，刷新间隔只在推送断开或品种长时间没成交时用到。")
+    }
     var linesNote: String {
         pick("The 24h lines are read when the panel opens.",
              "行情线取 24 小时，只在打开面板时更新。")
@@ -215,6 +219,10 @@ extension Strings {
         pick("Not on \(source)", "\(source) 没有")
     }
     var unreachableShort: String { pick("Can't reach", "连不上") }
+    var rateLimitedHint: String {
+        pick("Waiting out the limit. Leave the proxy alone — it will retry on its own.",
+             "正在等待限流解除，不用改代理，稍后会自动重试")
+    }
     func notListedDetail(_ source: String, _ name: String) -> String {
         pick("\(source) does not list \(name). Try another source.",
              "\(source) 没有 \(name)，换个数据源试试")
@@ -321,6 +329,10 @@ extension Strings {
     }
     func answeredNoQuote(_ name: String) -> String {
         pick("\(name) answered, but with no quote", "\(name) 有响应，但没有报价")
+    }
+    func liveButReadFailed(_ name: String, _ message: String) -> String {
+        pick("\(name) live push OK (price request: \(message))",
+             "\(name) 实时推送正常（查询接口：\(message)）")
     }
     func sourceOK(_ source: String, _ milliseconds: Int) -> String {
         pick("\(source) OK · \(milliseconds)ms", "\(source) 正常 · \(milliseconds)ms")

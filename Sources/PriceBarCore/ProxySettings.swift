@@ -80,6 +80,15 @@ public struct ProxySettings: Equatable, Sendable {
         URLSession(configuration: configuration(timeout: timeout))
     }
 
+    /// The settings for a connection that is meant to stay open. A price
+    /// request's resource limit would close it within seconds; Binance ends
+    /// each connection after a day anyway.
+    public func streamConfiguration() -> URLSessionConfiguration {
+        let configuration = configuration(timeout: 15)
+        configuration.timeoutIntervalForResource = 7 * 86_400
+        return configuration
+    }
+
     /// The settings a session reaching the network this way needs.
     public func configuration(timeout: TimeInterval = 7) -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral

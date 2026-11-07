@@ -48,7 +48,8 @@ public enum PriceAPI {
         _ ids: [String],
         source: MarketSource = .binance,
         session: URLSession = .shared,
-        strings: Strings = Strings()
+        strings: Strings = Strings(),
+        pacing: RequestPacing = .shared
     ) async -> Reading {
         let wanted = ids.map(Instrument.init(id:))
         guard !wanted.isEmpty else { return Reading() }
@@ -56,10 +57,10 @@ public enum PriceAPI {
         let perpetual = wanted.filter { $0.market == .perpetual }
 
         async let spotOutcomes = outcomes(
-            for: spot, market: .spot, source: source, session: session, strings: strings
+            for: spot, market: .spot, source: source, session: session, strings: strings, pacing: pacing
         )
         async let perpetualOutcomes = outcomes(
-            for: perpetual, market: .perpetual, source: source, session: session, strings: strings
+            for: perpetual, market: .perpetual, source: source, session: session, strings: strings, pacing: pacing
         )
         let all = await spotOutcomes + perpetualOutcomes
 
@@ -81,9 +82,12 @@ public enum PriceAPI {
         for ids: [String],
         source: MarketSource = .binance,
         session: URLSession = .shared,
-        strings: Strings = Strings()
+        strings: Strings = Strings(),
+        pacing: RequestPacing = .shared
     ) async throws -> [Quote] {
-        let reading = await read(ids, source: source, session: session, strings: strings)
+        let reading = await read(
+            ids, source: source, session: session, strings: strings, pacing: pacing
+        )
         if reading.quotes.isEmpty, !ids.isEmpty {
             throw reading.unreachable.map(PriceError.unreachable) ?? PriceError.noData
         }
@@ -108,11 +112,12 @@ public enum PriceAPI {
         market: Market,
         source: MarketSource,
         session: URLSession,
-        strings: Strings
+        strings: Strings,
+        pacing: RequestPacing
     ) async -> [Outcome] {
         guard !instruments.isEmpty else { return [] }
         if source.answersManyAtOnce(on: market), instruments.count > 1 {
-            switch await binanceBatch(instruments, session: session) {
+            switch await binanceBatch(instruments, session: session, pacing: pacing) {
             case let .success(quotes):
                 let found = Set(quotes.map(\.coin))
                 return quotes.map(Outcome.got) + instruments
@@ -128,7 +133,9 @@ public enum PriceAPI {
                 }
             }
         }
-        return await oneByOne(instruments, source: source, session: session, strings: strings)
+        return await oneByOne(
+            instruments, source: source, session: session, strings: strings, pacing: pacing
+        )
     }
 
     /// Reads one instrument per request, side by side.
@@ -136,12 +143,16 @@ public enum PriceAPI {
         _ instruments: [Instrument],
         source: MarketSource,
         session: URLSession,
-        strings: Strings
+        strings: Strings,
+        pacing: RequestPacing
     ) async -> [Outcome] {
         await withTaskGroup(of: Outcome.self) { group in
             for instrument in instruments {
                 group.addTask {
-                    await outcome(of: instrument, source: source, session: session, strings: strings)
+                    await outcome(
+                        of: instrument, source: source, session: session,
+                        strings: strings, pacing: pacing
+                    )
                 }
             }
             var all: [Outcome] = []
@@ -158,24 +169,56 @@ public enum PriceAPI {
     /// answer 200 with nothing in it; anything else — a refused connection,
     /// a 403 or 451 from a blocked region — is the market being out of
     /// reach, which a proxy may fix and a different code will not.
+    /// One cooldown per exchange, not per host name: every host of a source
+    /// goes out over the same exit IP, and that IP is what gets limited.
+    private static func pacingSlot(_ source: MarketSource) -> String {
+        source.rawValue
+    }
+
     private static func outcome(
         of instrument: Instrument,
         source: MarketSource,
         session: URLSession,
-        strings: Strings
+        strings: Strings,
+        pacing: RequestPacing
     ) async -> Outcome {
         var problem = describe(PriceError.noData, strings)
         for host in source.hosts(for: instrument.market) {
             guard let url = tickerURL(source: source, instrument: instrument, host: host) else { continue }
+            let key = pacingSlot(source)
+            // A cooldown is this connection resting. Asking the next host
+            // name over the same exit IP would send the same traffic again.
+            if case let .wait(seconds, code) = await pacing.decision(for: key) {
+                problem = describe(PriceError.rateLimited(code: code, seconds: seconds), strings)
+                break
+            }
+            let sentAt = await pacing.stamp()
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                     if http.statusCode == 400 {
                         return .absent(id: instrument.id, why: .notListed)
                     }
+                    if http.statusCode == 429 || http.statusCode == 418 {
+                        let seconds = await pacing.limited(
+                            host: key, code: http.statusCode,
+                            retryAfter: http.value(forHTTPHeaderField: "Retry-After")
+                        )
+                        problem = describe(
+                            PriceError.rateLimited(code: http.statusCode, seconds: seconds), strings
+                        )
+                        // The limit is on our IP, not on the host name: this
+                        // is exactly the "keep asking after a 429" that the
+                        // exchange turns into a 418 ban.
+                        break
+                    }
                     problem = describe(PriceError.badResponse(http.statusCode), strings)
                     continue
                 }
+                // An answer, even one with no price in it, means this IP is
+                // welcome again — as long as the request went out after the
+                // cooldown, not before a sibling was refused.
+                await pacing.succeeded(host: key, sentAt: sentAt)
                 guard let quote = quote(from: data, source: source, instrument: instrument) else {
                     return .absent(id: instrument.id, why: .notListed)
                 }
@@ -222,7 +265,9 @@ public enum PriceAPI {
     /// Binance is the one exchange that answers for many pairs at once: one
     /// request for the whole panel's spot coins. A single symbol comes back
     /// as an object, a list of them as an array.
-    private static func binanceBatch(_ instruments: [Instrument], session: URLSession) async -> Result<[Quote], Error> {
+    private static func binanceBatch(
+        _ instruments: [Instrument], session: URLSession, pacing: RequestPacing
+    ) async -> Result<[Quote], Error> {
         var lastError: Error = PriceError.noData
 
         for host in MarketSource.binance.hosts(for: .spot) {
@@ -237,16 +282,31 @@ public enum PriceAPI {
                 .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "[]"
             components.percentEncodedQuery = "symbols=" + encoded
             guard let url = components.url else { continue }
+            let key = pacingSlot(.binance)
+            if case let .wait(seconds, code) = await pacing.decision(for: key) {
+                lastError = PriceError.rateLimited(code: code, seconds: seconds)
+                break
+            }
+            let sentAt = await pacing.stamp()
 
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    if http.statusCode == 429 || http.statusCode == 418 {
+                        let seconds = await pacing.limited(
+                            host: key, code: http.statusCode,
+                            retryAfter: http.value(forHTTPHeaderField: "Retry-After")
+                        )
+                        lastError = PriceError.rateLimited(code: http.statusCode, seconds: seconds)
+                        break
+                    }
                     lastError = PriceError.badResponse(http.statusCode)
                     // A pair it does not list is the same answer from every
                     // host: no use asking the next.
                     if http.statusCode == 400 { break }
                     continue
                 }
+                await pacing.succeeded(host: key, sentAt: sentAt)
                 return .success(try binanceQuotes(from: data, instruments: instruments))
             } catch {
                 lastError = error
@@ -402,18 +462,34 @@ public enum PriceAPI {
         coin: String,
         source: MarketSource = .binance,
         hours: Int = 24,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        pacing: RequestPacing = .shared
     ) async throws -> [Double] {
         let instrument = Instrument(id: coin)
         var lastError: Error = PriceError.noData
         for host in source.hosts(for: instrument.market) {
             guard let url = candlesURL(source: source, instrument: instrument, host: host, hours: hours) else { continue }
+            let key = pacingSlot(source)
+            if case let .wait(seconds, code) = await pacing.decision(for: key) {
+                lastError = PriceError.rateLimited(code: code, seconds: seconds)
+                break
+            }
+            let sentAt = await pacing.stamp()
             do {
                 let (data, response) = try await session.data(from: url)
                 if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    if http.statusCode == 429 || http.statusCode == 418 {
+                        let seconds = await pacing.limited(
+                            host: key, code: http.statusCode,
+                            retryAfter: http.value(forHTTPHeaderField: "Retry-After")
+                        )
+                        lastError = PriceError.rateLimited(code: http.statusCode, seconds: seconds)
+                        break
+                    }
                     lastError = PriceError.badResponse(http.statusCode)
                     continue
                 }
+                await pacing.succeeded(host: key, sentAt: sentAt)
                 let closes = try closes(from: data, source: source, market: instrument.market)
                 if closes.isEmpty {
                     lastError = PriceError.noData
@@ -528,16 +604,21 @@ public enum PriceAPI {
         code: String,
         source: MarketSource = .binance,
         session: URLSession = .shared,
-        strings: Strings = Strings()
+        strings: Strings = Strings(),
+        pacing: RequestPacing = .shared
     ) async -> Reading {
         let ids = Market.allCases.map { Instrument(code: code, market: $0).id }
-        return await read(ids, source: source, session: session, strings: strings)
+        return await read(
+            ids, source: source, session: session, strings: strings, pacing: pacing
+        )
     }
 }
 
-public enum PriceError: LocalizedError {
+public enum PriceError: LocalizedError, Sendable {
     case noData
     case badResponse(Int)
+    /// The exchange asked us to stop for `seconds`, after a 429 or a 418.
+    case rateLimited(code: Int, seconds: Int)
     /// The network, the proxy, or the exchange: whatever the message says.
     case unreachable(String)
 
@@ -546,6 +627,7 @@ public enum PriceError: LocalizedError {
         switch self {
         case .noData: return strings.noData
         case let .badResponse(code): return strings.badResponse(code)
+        case let .rateLimited(code, seconds): return strings.rateLimited(code, seconds)
         case let .unreachable(message): return message
         }
     }

@@ -286,6 +286,37 @@ struct NetworkTests {
         }
     }
 
+    @Test("四家都推送现货和合约的价格", arguments: MarketSource.allCases)
+    func everySourcePushes(source: MarketSource) async throws {
+        let stream = PriceStream(
+            source: source,
+            instruments: ["BTC", "BTC.P"].map(Instrument.init(id:)),
+            proxy: ProxySettings(mode: .custom, address: "http://127.0.0.1:1080")
+        )
+        await stream.start()
+        let got = await withTaskGroup(of: Set<String>.self) { group in
+            group.addTask {
+                var coins: Set<String> = []
+                for await event in stream.events {
+                    if case let .quotes(quotes) = event {
+                        coins.formUnion(quotes.filter { $0.price > 10000 }.map(\.coin))
+                    }
+                    if coins.count == 2 { break }
+                }
+                return coins
+            }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(20))
+                return []
+            }
+            let first = await group.next() ?? []
+            group.cancelAll()
+            return first
+        }
+        await stream.stop()
+        #expect(got == ["BTC", "BTC.P"])
+    }
+
     @Test("四家都能报出同一个币的价格", arguments: MarketSource.allCases)
     func everySourceQuotes(source: MarketSource) async throws {
         // Binance and Gate answer this network directly; OKX and Bybit only

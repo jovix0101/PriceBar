@@ -142,6 +142,40 @@ extension Strings {
         pick("The price API answered HTTP \(code).", "行情接口返回 HTTP \(code)")
     }
 
+    /// A 429 is a warning; a 418 is a ban. Either way the app stops asking
+    /// for a while, and says when it will try again.
+    public func rateLimited(_ code: Int, _ seconds: Int) -> String {
+        let wait = duration(seconds)
+        if code == 418 {
+            return pick(
+                "This IP is temporarily banned (HTTP 418). Retrying in \(wait).",
+                "币安暂时封了这个 IP（HTTP 418），\(wait)后重试"
+            )
+        }
+        return pick(
+            "The price API is rate limited (HTTP 429). Retrying in \(wait).",
+            "行情接口被限流（HTTP 429），\(wait)后重试"
+        )
+    }
+
+    /// A three-day ban is 259200 seconds. Nobody reads that as a duration,
+    /// so the wait is said in the unit that fits it.
+    private func duration(_ seconds: Int) -> String {
+        if seconds >= 86_400 {
+            let days = seconds / 86_400
+            return pick("about \(days) day\(days == 1 ? "" : "s")", "约 \(days) 天")
+        }
+        if seconds >= 3_600 {
+            let hours = seconds / 3_600
+            return pick("about \(hours) hour\(hours == 1 ? "" : "s")", "约 \(hours) 小时")
+        }
+        if seconds >= 60 {
+            let minutes = seconds / 60
+            return pick("about \(minutes) minute\(minutes == 1 ? "" : "s")", "约 \(minutes) 分钟")
+        }
+        return pick("about \(seconds) second\(seconds == 1 ? "" : "s")", "约 \(seconds) 秒")
+    }
+
     /// Why a code cannot be added without asking the exchange.
     public var typeACode: String {
         pick("Type a code.", "请输入代号")

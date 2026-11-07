@@ -116,6 +116,11 @@ public enum MarketSource: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Whether the exchange's prices arrive over a held connection. All
+    /// four push; the polling stays for the gaps. The connections themselves
+    /// are described in `StreamWire`.
+    public var pushesPrices: Bool { true }
+
     /// Whether the exchange answers for many coins at once. Only Binance
     /// does, and only on its spot market; everything else takes one request
     /// per coin, made side by side.

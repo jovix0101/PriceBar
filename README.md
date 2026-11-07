@@ -19,7 +19,7 @@
 ```bash
 ./build.sh                  # build/PriceBar.app 与 build/PriceBar.dmg
 open build/PriceBar.app
-swift test                  # 70 个测试
+swift test                  # 125 个测试
 ```
 
 `./build.sh` 会自动用 Xcode 工具链（`#Preview` 宏需要它）。`NETWORK_TESTS=1 swift test`
@@ -50,6 +50,10 @@ Sources/PriceBarCore/       纯逻辑，可测试
   Instrument.swift          品种：代号 + 现货 / 永续合约（存成 BTC、BTC.P）
   MarketSource.swift        交易所差异：交易对写法、主机、能否批量
   ProxySettings.swift       代理三档与请求会话
+  RequestPacing.swift       429 / 418 之后按交易所退避冷却
+  PriceStream.swift         WebSocket 推送：每个市场一条连接，断线退避重连，看门狗与心跳
+  StreamWire.swift          四家推送的地址、订阅消息、心跳与消息解析
+  ReadPlan.swift            推送在线时哪些币还要 HTTP 补查，两路结果怎么合并
   CoinOrder.swift           币种顺序：勾选、拖动、删币之后怎么排
   CoinValidation.swift      添加时的校验：哪个市场有、加哪个、为什么加不了
   ErrorText.swift           网络错误翻成人话
@@ -64,11 +68,11 @@ Sources/PriceBar/           外壳
   RulesView.swift           提醒规则
   SettingsView.swift        设置窗口
   Sparkline.swift           24 小时行情线
-  Store.swift               状态、轮询、写入设置
+  Store.swift               状态、推送与轮询、写入设置
   Strings+App.swift         界面自己的词：设置四页、面板、弹窗、菜单
   Notifier.swift            系统通知与权限
   LoginItem.swift           开机自启
-Tests/PriceBarCoreTests/    70 个测试（Swift Testing）
+Tests/PriceBarCoreTests/    125 个测试（Swift Testing）
 .github/workflows/          GitHub Actions：编译、打包 dmg、发布
 Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
 Shots/                      产品页上的截图 make-shots.sh（中英各一套，1× 与 @2x）
@@ -86,6 +90,17 @@ build.sh                    编译、写 Info.plist、签名、打 dmg
 - **不做轮播**：并排显示一次看全，顺序只有一份（设置里拖动的顺序也是面板的顺序）。
 - **提醒阈值永远按美元存**，与面板显示哪种货币无关，换货币不会改变规则的意思。
 - **行情线只在打开面板时取**，超过 5 分钟才算旧：价格 10 秒一刷，线画得再勤也看不出变化。
+- **四家价格都走 WebSocket 推送**：推送不占 REST 请求权重，共享代理出口不会再被别人的流量拖进
+  429 / 418。连接开着时轮询只补查安静超过 1 分钟的品种；连接断了按 1→60 秒退避重连，期间回到
+  HTTP 轮询。各家的写法在 `StreamWire.swift`，都对过真实服务器：
+  - 币安：现货 `data-stream.binance.vision`，合约必须用 `fstream.binance.com/market`，老的 `/ws`
+    路径能握手但不推数据；
+  - Gate：现货 `api.gateio.ws/ws/v4/`、合约 `fx-ws.gateio.ws/v4/ws/usdt`，现货订阅里有一个不存在
+    的交易对整条就失败，所以每个币单独订阅；
+  - OKX：`ws.okx.com/ws/v5/public` 一条连接带现货和合约，只有 443 端口走得通，30 秒没动静会被断开，
+    要发 `ping`；
+  - Bybit：`stream.bybit.com/v5/public/spot|linear`，一个不存在的币会让整条订阅失败，所以逐个订阅；
+    合约只推第一次全量，之后只推变化字段，要在本地拼上。
 - **只接现货 USDT 和 U 本位永续合约**：同一个 BTC 在一家交易所有二三十个品种（USDC / FDUSD
   计价、币本位永续、交割合约），价格只差几块钱，全列出来面板没法读；交割合约还会到期。
   黄金和美股在四家都只有永续合约。品种存成 `BTC` / `BTC.P` 一个字符串，旧设置读出来就是现货，
@@ -94,6 +109,12 @@ build.sh                    编译、写 Info.plist、签名、打 dmg
   「24h 涨跌」是滚动 24 小时，不是股票软件的“比昨收”。
 - **币安合约要挂代理**：币安的现货有单独的行情域名（`data-api.binance.vision`），多数网络能直连；
   合约只在 `fapi.binance.com`，没有这样的域名。取不到时那一行留在面板上，写明“连不上”。
+- **被限流就先歇一会儿**：429 / 418 都先读 `Retry-After`。429 至少等 30 秒、最多 5 分钟；
+  418 按响应头等完整个封禁（币安文档写的是 2 分钟到 3 天），没有响应头时从 2 分钟起翻倍、
+  上限 30 分钟。冷却按交易所分槽：同一家的现货、合约、K 线共用一个出口 IP，冷却期间一个请求
+  都不发，也不会换备用域名绕过去；拿到 200 就归零。只有换代理（换出口 IP）才立刻清冷却，
+  换数据源不清，免得切回来时忘了还在封禁。限制按出口 IP 算，共享代理节点上别人的流量也会
+  连累，退避能减少 418，但不能保证它不再出现。
 - **不做跨交易所兜底**：同一刻四家的 BTC 报价差几十美元，自动换源会让数字莫名跳动。
   只有 Binance 内部的两个域名互为备份。
 - **直连是显式关掉代理**（`HTTPEnable: 0`），不是「不设代理」——后者等于去查系统设置。
