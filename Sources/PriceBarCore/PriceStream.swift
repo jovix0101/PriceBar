@@ -268,6 +268,13 @@ public actor PriceStream {
         link.live = true
         links[wire.key] = link
         guard opening else { return }
+        // Exchanges that close a quiet connection get their first heartbeat as
+        // soon as the link is live, not one tick later: on a loaded machine a
+        // single tick can already be longer than the silence window.
+        if let beat = wire.heartbeat(at: Date()) {
+            let socket = link.socket
+            Task { try? await socket.send(beat) }
+        }
         continuation.yield(.live(wire.ids, true))
         let pacing = pacing
         let slot = streamSlot
