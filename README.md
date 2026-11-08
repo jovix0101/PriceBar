@@ -5,13 +5,13 @@
 
 需要 macOS 14 以上。安装包 2 MB，装好占 2.8 MB，没有第三方依赖。
 
-**[产品页 →](https://jovix0101.github.io/pricebar/zh.html)**（[English](https://jovix0101.github.io/pricebar/)） ・ **[下载 .dmg →](https://github.com/jovix0101/pricebar/releases/latest/download/PriceBar.dmg)**
+**[产品页 →](https://jovix0101.github.io/PriceBar/zh.html)**（[English](https://jovix0101.github.io/PriceBar/)） ・ **[下载 .dmg →](https://github.com/jovix0101/PriceBar/releases/latest/download/PriceBar.dmg)**
 
 <img src="docs/panel-zh@2x.png" width="300" alt="面板：每行一个品种，价格、涨跌幅与 24 小时行情线">
 
 ## 装
 
-从[产品页](https://jovix0101.github.io/pricebar/)或 Releases 下 `PriceBar.dmg`，打开后把 `PriceBar.app` 拖进「应用程序」。没有公证，
+从[产品页](https://jovix0101.github.io/PriceBar/)或 Releases 下 `PriceBar.dmg`，打开后把 `PriceBar.app` 拖进「应用程序」。没有公证，
 首次打开若被拦，右键点「打开」一次。
 
 自己编：

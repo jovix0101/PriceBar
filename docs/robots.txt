@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://jovix0101.github.io/pricebar/sitemap.xml
+Sitemap: https://jovix0101.github.io/PriceBar/sitemap.xml
