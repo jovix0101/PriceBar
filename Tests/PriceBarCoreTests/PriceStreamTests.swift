@@ -495,7 +495,11 @@ struct PriceStreamTests {
         let stream = make(["BTC", "ETH"], sockets, source: .bybit)
         await stream.start()
         _ = await nextEvent(of: stream) { $0 == .live(["BTC", "ETH"], true) }
-        try? await Task.sleep(for: .milliseconds(40))
+        // The heartbeat goes out on a watchdog tick after the connection is
+        // live; a slow machine may need several ticks.
+        for _ in 0..<100 where !socket.sent.dropFirst(2).contains(#"{"op":"ping"}"#) {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         await stream.stop()
         #expect(Array(socket.sent.prefix(2)) == [
             #"{"op":"subscribe","args":["tickers.BTCUSDT"]}"#,
