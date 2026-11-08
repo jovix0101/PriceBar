@@ -1,196 +1,91 @@
 # PriceBar
 
-一个 macOS 菜单栏价格工具：加密货币，以及黄金、白银、美股的交易所永续合约，价格钉在菜单栏，
-点开是面板（24 小时行情线、涨跌幅），价格或涨跌幅越过你设的线就发一条系统通知。
+Prices in your Mac menu bar. Crypto, gold, silver and US stocks sit next to the clock;
+click the icon for a 24-hour chart, the day's change, and a notification when a price
+crosses a line you set.
 
-需要 macOS 14 以上。安装包 2 MB，装好占 2.8 MB，没有第三方依赖。
+**[Website →](https://jovix0101.github.io/PriceBar/)** ・ **[Download .dmg →](https://github.com/jovix0101/PriceBar/releases/latest/download/PriceBar.dmg)** ・ **[中文说明](README.zh-CN.md)**
 
-**[产品页 →](https://jovix0101.github.io/PriceBar/zh.html)**（[English](https://jovix0101.github.io/PriceBar/)） ・ **[下载 .dmg →](https://github.com/jovix0101/PriceBar/releases/latest/download/PriceBar.dmg)**
+<img src="docs/panel@2x.png" width="300" alt="The panel: one row per instrument, with price, change and a 24-hour chart">
 
-<img src="docs/panel-zh@2x.png" width="300" alt="面板：每行一个品种，价格、涨跌幅与 24 小时行情线">
+macOS 14 or later. The download is 2 MB and the installed app takes 2.8 MB. No account, no
+subscription, no analytics, no background service.
 
-## 装
+## What you get
 
-从[产品页](https://jovix0101.github.io/PriceBar/)或 Releases 下 `PriceBar.dmg`，打开后把 `PriceBar.app` 拖进「应用程序」。没有公证，
-首次打开若被拦，右键点「打开」一次。
+- **Prices in the menu bar** — `BTC $76,584 ▲2.02%`. Tick several instruments and they line up
+  side by side, in the order you arrange them.
+- **A panel on click** — one row per instrument: 24-hour chart, current price, change. A bell at the
+  end of each row sets an alert; the footer adds instruments, refreshes, or opens settings.
+- **Price alerts** — one notification when the price or the 24-hour change crosses your threshold.
+  Then it waits until the price comes back, instead of nagging every refresh.
+- **Crypto, metals and stocks together** — BTC, ETH and the rest at spot price; gold (XAU), silver
+  (XAG) and US names such as AAPL, TSLA or NVDA through exchange perpetuals.
+- **Four exchanges** — Binance, Gate, OKX and Bybit. Pick one, switch whenever.
+- **USD or CNY** — prices convert with a daily exchange rate. Your alert thresholds stay in USD, so
+  changing the display currency never changes what a rule means.
+- **Light footprint** — a single menu bar app, no third-party dependencies, no separate helper.
+- **English and Chinese** — switch in the first settings tab; the change is instant.
 
-自己编：
+## Install
+
+Download `PriceBar.dmg` from the [website](https://jovix0101.github.io/PriceBar/) or
+[Releases](https://github.com/jovix0101/PriceBar/releases/latest), open it and drag `PriceBar.app`
+into Applications.
+
+The app is not notarized, so macOS may block the first launch. Right-click the app, choose **Open**,
+and confirm once. Later launches are normal.
+
+## Using it
+
+- **Left-click the menu bar icon** opens the panel; **right-click** gives Settings and Quit.
+- **Adding an instrument**: type the symbol. BTC, ETH and other coins are added at spot price; tick
+  the perpetual as well if you want both. Gold, silver and US stocks are perpetuals only.
+- **⌘,** opens settings, **⌘Q** quits.
+- **Settings, four tabs**:
+  - *General* — language, display currency (USD / CNY), up-and-down colours, refresh interval from
+    5 seconds to a minute, launch at login.
+  - *Menu bar* — which instruments appear and in what order, and the text colour.
+  - *Panel* — how many rows before the panel scrolls, and whether clicking a row opens the
+    exchange's page for that instrument.
+  - *Source and proxy* — which exchange to use, and the proxy: direct, follow the system, or a
+    custom address, with a connection test.
+
+## Where the prices come from
+
+Quotes go straight from the app to Binance, Gate, OKX or Bybit over their public WebSocket and REST
+endpoints. There is no server in between, nothing is collected, and the only thing written to disk is
+your own settings file.
+
+Two things worth knowing about the data:
+
+- **Perpetual prices are not share prices.** They track the underlying but trade 24/7, so they keep
+  moving while the stock market is closed and carry a small basis.
+- **"24h change" is a rolling 24 hours**, not the change since the previous close, so it will not
+  match a stock app.
+
+## Build from source
 
 ```bash
-./build.sh                  # build/PriceBar.app 与 build/PriceBar.dmg
+git clone https://github.com/jovix0101/PriceBar.git
+cd PriceBar
+
+./build.sh            # build/PriceBar.app and build/PriceBar.dmg
 open build/PriceBar.app
-swift test                  # 125 个测试
 ```
 
-`./build.sh` 会自动用 Xcode 工具链（`#Preview` 宏需要它）。`NETWORK_TESTS=1 swift test`
-会连真实行情跑网络测试。
+`./build.sh` picks up the Xcode toolchain automatically. `swift test` runs the test suite;
+`NETWORK_TESTS=1 swift test` also hits the live exchange endpoints.
 
-## 用
+## Known limitations
 
-- **菜单栏**：`BTC $ 76,584 ▲2.02%`，勾选几个品种就并排显示几个
-- **左键图标**：面板；**右键图标**：设置… / 退出
-- **面板**：每行一个品种（24 小时线、现价、涨跌），行尾铃铛设提醒，底栏添加、刷新、设置；
-  点一行打开交易所的合约行情页（可在设置里关掉）
-- **添加**：填代号。币（BTC、ETH）默认加现货，交易所也有永续合约时可以一起勾上；
-  黄金 XAU、白银 XAG、美股 AAPL / TSLA / NVDA 等只有永续合约，直接加。合约在面板里标「合约」
-- **⌘,**：设置；**⌘Q**：退出
+- Not notarized yet, so the first launch needs the right-click → Open step.
+- One exchange at a time. Prices are never blended across exchanges: the same BTC can differ by tens
+  of dollars between venues, and switching sources automatically would make the number jump for no
+  visible reason.
+- Binance futures need a proxy on some networks. Binance spot has a separate market-data host that
+  usually connects directly; futures only answer on `fapi.binance.com`.
 
-设置分四页——通用（界面语言、计价货币 USD / CNY、涨跌颜色、刷新间隔、开机自启）、菜单栏（显示哪些、
-拖动排序，这个顺序也是面板的顺序；文字颜色）、面板（最多显示几行、点击是否跳转）、数据源与代理。
+## License
 
-界面中英双语，默认英文，在通用页第一组切换，选完立刻生效。
-
-## 结构
-
-```
-Sources/PriceBarCore/       纯逻辑，可测试
-  Quote.swift               数据模型与提醒规则
-  PriceAPI.swift            行情与汇率，四个交易所的解析
-  AppSettings.swift         配置读写、提醒引擎、格式化
-  Instrument.swift          品种：代号 + 现货 / 永续合约（存成 BTC、BTC.P）
-  MarketSource.swift        交易所差异：交易对写法、主机、能否批量
-  ProxySettings.swift       代理三档与请求会话
-  RequestPacing.swift       429 / 418 之后按交易所退避冷却
-  PriceStream.swift         WebSocket 推送：每个市场一条连接，断线退避重连，看门狗与心跳
-  StreamWire.swift          四家推送的地址、订阅消息、心跳与消息解析
-  ReadPlan.swift            推送在线时哪些币还要 HTTP 补查，两路结果怎么合并
-  CoinOrder.swift           币种顺序：勾选、拖动、删币之后怎么排
-  CoinValidation.swift      添加时的校验：哪个市场有、加哪个、为什么加不了
-  ErrorText.swift           网络错误翻成人话
-  Strings.swift             中英两种说法：界面用词、错误、通知
-Sources/PriceBar/           外壳
-  main.swift                入口：NSApplication + delegate
-  PriceBarApp.swift         AppDelegate：store、主菜单、启动
-  StatusItem.swift          菜单栏项、面板 popover、右键菜单
-  MenuBarPrice.swift        菜单栏那一行字怎么拼：字号、颜色、补宽
-  PanelView.swift           面板与价格行
-  AddCoinView.swift         添加币种
-  RulesView.swift           提醒规则
-  SettingsView.swift        设置窗口
-  Sparkline.swift           24 小时行情线
-  Store.swift               状态、推送与轮询、写入设置
-  Strings+App.swift         界面自己的词：设置四页、面板、弹窗、菜单
-  Notifier.swift            系统通知与权限
-  LoginItem.swift           开机自启
-Tests/PriceBarCoreTests/    125 个测试（Swift Testing）
-.github/workflows/          GitHub Actions：编译、打包 dmg、发布
-Icon/                       应用图标 make-icon.swift、分享图 make-card.swift
-Shots/                      产品页上的截图 make-shots.sh（中英各一套，1× 与 @2x）
-docs/                       产品页（中/英）与截图（GitHub Pages）
-build.sh                    编译、写 Info.plist、签名、打 dmg
-scripts/setup-signing.sh    生成自签名证书，让通知权限跨构建保留
-scripts/export-signing.sh   导出这张证书，换 Mac 时用
-```
-
-## 几个实现上的取舍
-
-- **不用 `MenuBarExtra`**：它关掉面板后视图不销毁（`onAppear` 只跑一次，行情线永远不刷新）、
-  不支持右键、标签是一行纯文本改不了字号。现在是自己的 `NSStatusItem` + `NSPopover`。
-- **菜单栏整行是一个 `attributedTitle`**：每段自带颜色，所以「币种和价格听文字颜色设置、
-  涨跌幅永远按方向红绿」不需要任何特判。`$` 用 10pt、数字 13pt 等宽，同一基线。
-  涨跌幅块按 `▲00.00%` 定宽，用 `.kern` 补——标题会**测量**空格却不**画**它，空格补出来的宽度是假的。
-- **不做轮播**：并排显示一次看全，顺序只有一份（设置里拖动的顺序也是面板的顺序）。
-- **提醒阈值永远按美元存**，与面板显示哪种货币无关，换货币不会改变规则的意思。
-- **行情线只在打开面板时取**，超过 5 分钟才算旧：价格 10 秒一刷，线画得再勤也看不出变化。
-- **四家价格都走 WebSocket 推送**：推送不占 REST 请求权重，共享代理出口不会再被别人的流量拖进
-  429 / 418。连接开着时轮询只补查安静超过 1 分钟的品种；连接断了按 1→60 秒退避重连，期间回到
-  HTTP 轮询。各家的写法在 `StreamWire.swift`，都对过真实服务器：
-  - 币安：现货 `data-stream.binance.vision`，合约必须用 `fstream.binance.com/market`，老的 `/ws`
-    路径能握手但不推数据；
-  - Gate：现货 `api.gateio.ws/ws/v4/`、合约 `fx-ws.gateio.ws/v4/ws/usdt`，现货订阅里有一个不存在
-    的交易对整条就失败，所以每个币单独订阅；
-  - OKX：`ws.okx.com/ws/v5/public` 一条连接带现货和合约，只有 443 端口走得通，30 秒没动静会被断开，
-    要发 `ping`；
-  - Bybit：`stream.bybit.com/v5/public/spot|linear`，一个不存在的币会让整条订阅失败，所以逐个订阅；
-    合约只推第一次全量，之后只推变化字段，要在本地拼上。
-- **只接现货 USDT 和 U 本位永续合约**：同一个 BTC 在一家交易所有二三十个品种（USDC / FDUSD
-  计价、币本位永续、交割合约），价格只差几块钱，全列出来面板没法读；交割合约还会到期。
-  黄金和美股在四家都只有永续合约。品种存成 `BTC` / `BTC.P` 一个字符串，旧设置读出来就是现货，
-  顺序、勾选、提醒规则都不用迁移。
-- **合约价不是正股价**：永续合约跟着标的走，但 7×24 交易，美股休市时照样在动，平时也有一点价差；
-  「24h 涨跌」是滚动 24 小时，不是股票软件的“比昨收”。
-- **币安合约要挂代理**：币安的现货有单独的行情域名（`data-api.binance.vision`），多数网络能直连；
-  合约只在 `fapi.binance.com`，没有这样的域名。取不到时那一行留在面板上，写明“连不上”。
-- **被限流就先歇一会儿**：429 / 418 都先读 `Retry-After`。429 至少等 30 秒、最多 5 分钟；
-  418 按响应头等完整个封禁（币安文档写的是 2 分钟到 3 天），没有响应头时从 2 分钟起翻倍、
-  上限 30 分钟。冷却按交易所分槽：同一家的现货、合约、K 线共用一个出口 IP，冷却期间一个请求
-  都不发，也不会换备用域名绕过去；拿到 200 就归零。只有换代理（换出口 IP）才立刻清冷却，
-  换数据源不清，免得切回来时忘了还在封禁。限制按出口 IP 算，共享代理节点上别人的流量也会
-  连累，退避能减少 418，但不能保证它不再出现。
-- **不做跨交易所兜底**：同一刻四家的 BTC 报价差几十美元，自动换源会让数字莫名跳动。
-  只有 Binance 内部的两个域名互为备份。
-- **直连是显式关掉代理**（`HTTPEnable: 0`），不是「不设代理」——后者等于去查系统设置。
-
-## 设置文件
-
-`~/Library/Application Support/PriceBar/settings.json`：
-
-```json
-{
-  "coins": ["BTC", "ETH"],
-  "menuBarCoins": ["BTC", "ETH"],
-  "currency": "USD",
-  "interval": 10,
-  "panelRows": 8,
-  "source": "binance",
-  "proxyMode": "direct",
-  "proxyAddress": "",
-  "changeColors": "greenUp",
-  "menuBarTint": "automatic",
-  "rules": [
-    { "coin": "BTC", "metric": "price", "above": true, "threshold": 70000, "armed": true }
-  ]
-}
-```
-
-`metric` 是 `price` 或 `change`（`-5` 表示跌 5%）。`armed` 为 `false` 表示这条规则已经通知过，
-价格回到阈值另一侧后会自动变回 `true`。字段读不懂时只退回该字段的默认值，不会丢掉整份配置。
-
-## 发布
-
-`.github/workflows/release.yml` 在 GitHub 自己的 Mac 上编译，下载不需要工具链。
-
-- 推 tag（`git tag v0.2.0 && git push origin v0.2.0`）→ 正式 Release，
-  附件是 `PriceBar-<版本>.dmg` 与固定名的 `PriceBar.dmg`
-- 推 `main` → 重写 `nightly` 预发布，附件只有固定名的 `PriceBar.dmg`
-- 发布版用 `UNIVERSAL=1` 编成通用二进制（arm64 + x86_64）
-
-`PriceBar.dmg` 这个固定名是给产品页的下载按钮用的，链接不能跟着版本号变。
-
-## 已知缺口
-
-- 没有公证，首次打开要右键「打开」一次
-- 未做 App Sandbox（上架才需要）
-
-## 签名与通知权限
-
-签名决定 macOS 认为两次构建是不是同一个 app。ad-hoc 签名（`codesign --sign -`）没有证书，
-macOS 只能用这一次构建的哈希（`cdhash`）认它，重新构建哈希就变，上一次给的通知权限随之失效。
-换个证书签名，指定的要求就变成稳定的一条：
-
-```
-identifier "dev.pricebar.app" and certificate root = H"..."
-```
-
-这条不变，权限只授权一次。自签名证书就能做到，不需要 Apple 开发者会员：
-
-```bash
-./scripts/setup-signing.sh   # 每台 Mac 跑一次
-./build.sh                   # 之后自动用这张证书签名
-```
-
-换一台 Mac 时不要重新生成证书，否则 macOS 又认成另一个 app。把证书带过去：
-
-```bash
-./scripts/export-signing.sh  # 生成 PriceBar-Self-Signed.p12（会问密码）
-# 新机器上：
-security import PriceBar-Self-Signed.p12 \
-    -k ~/Library/Keychains/login.keychain-db -P <密码> -T /usr/bin/codesign
-```
-
-那个 `.p12` 里有私钥，`*.p12` 已加进 `.gitignore`，别放进仓库或共享目录。
-`security export` 是按 keychain 而不是按名字选条目，会把整串身份都写出去，所以
-证书和私钥另存了一份在 `~/Library/Application Support/PriceBar/signing/`，导出时从这里打包。
-
-CI 上没有这张证书，仍走 ad-hoc，构建照常通过。有 Developer ID 之后换掉即可，
-不用改结构：`SIGN_IDENTITY="Developer ID Application: ... (TEAMID)" ./build.sh`。
+MIT. See [LICENSE](LICENSE).

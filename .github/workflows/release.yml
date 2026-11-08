@@ -77,8 +77,8 @@ jobs:
               gh release create nightly \
                 --prerelease \
                 --target main \
-                --title "PriceBar 每日构建" \
-                --notes "每次推送 main 都会重写这个版本。未做公证：首次打开请右键点「打开」。"
+                --title "PriceBar nightly" \
+                --notes "Rebuilt on every push to main. Not notarized: right-click the app and choose Open on the first launch."
             else
               # Both names, so that the zip from before the switch goes too.
               gh release delete-asset nightly PriceBar.dmg --yes || true
