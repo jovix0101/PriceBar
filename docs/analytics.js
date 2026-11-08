@@ -3,12 +3,8 @@
 // Nothing leaves the browser until SITE is filled in. With it empty this file
 // returns immediately, so an unconfigured page makes no third-party request at
 // all — which is what the README promises about the app itself.
-//
-// To turn it on: sign up at https://goatcounter.com (free, no card), pick a
-// code, and put it below. "pricebar" would mean the counter lives at
-// https://pricebar.goatcounter.com.
 (function () {
-  var SITE = ""; // TODO: the GoatCounter site code
+  var SITE = "pricebar"; // https://pricebar.goatcounter.com
   if (!SITE) return;
 
   var endpoint = "https://" + SITE + ".goatcounter.com/count";

@@ -86,6 +86,12 @@ open build/PriceBar.app
 - Binance futures need a proxy on some networks. Binance spot has a separate market-data host that
   usually connects directly; futures only answer on `fapi.binance.com`.
 
+## Privacy
+
+The app talks to the exchanges and to nothing of ours: there is no backend, no account, no
+sign-in. The product page counts visits and download clicks with GoatCounter — no cookies, no
+fingerprinting — and that happens on the web page only, never inside the app.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
