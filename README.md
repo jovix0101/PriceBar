@@ -78,6 +78,8 @@ Icon/                       应用图标 make-icon.swift、分享图 make-card.s
 Shots/                      产品页上的截图 make-shots.sh（中英各一套，1× 与 @2x）
 docs/                       产品页（中/英）与截图（GitHub Pages）
 build.sh                    编译、写 Info.plist、签名、打 dmg
+scripts/setup-signing.sh    生成自签名证书，让通知权限跨构建保留
+scripts/export-signing.sh   导出这张证书，换 Mac 时用
 ```
 
 ## 几个实现上的取舍
@@ -157,6 +159,38 @@ build.sh                    编译、写 Info.plist、签名、打 dmg
 
 ## 已知缺口
 
-- ad-hoc 签名，每次重新构建签名都会变，macOS 可能因此重置通知权限
 - 没有公证，首次打开要右键「打开」一次
 - 未做 App Sandbox（上架才需要）
+
+## 签名与通知权限
+
+签名决定 macOS 认为两次构建是不是同一个 app。ad-hoc 签名（`codesign --sign -`）没有证书，
+macOS 只能用这一次构建的哈希（`cdhash`）认它，重新构建哈希就变，上一次给的通知权限随之失效。
+换个证书签名，指定的要求就变成稳定的一条：
+
+```
+identifier "dev.pricebar.app" and certificate root = H"..."
+```
+
+这条不变，权限只授权一次。自签名证书就能做到，不需要 Apple 开发者会员：
+
+```bash
+./scripts/setup-signing.sh   # 每台 Mac 跑一次
+./build.sh                   # 之后自动用这张证书签名
+```
+
+换一台 Mac 时不要重新生成证书，否则 macOS 又认成另一个 app。把证书带过去：
+
+```bash
+./scripts/export-signing.sh  # 生成 PriceBar-Self-Signed.p12（会问密码）
+# 新机器上：
+security import PriceBar-Self-Signed.p12 \
+    -k ~/Library/Keychains/login.keychain-db -P <密码> -T /usr/bin/codesign
+```
+
+那个 `.p12` 里有私钥，`*.p12` 已加进 `.gitignore`，别放进仓库或共享目录。
+`security export` 是按 keychain 而不是按名字选条目，会把整串身份都写出去，所以
+证书和私钥另存了一份在 `~/Library/Application Support/PriceBar/signing/`，导出时从这里打包。
+
+CI 上没有这张证书，仍走 ad-hoc，构建照常通过。有 Developer ID 之后换掉即可，
+不用改结构：`SIGN_IDENTITY="Developer ID Application: ... (TEAMID)" ./build.sh`。

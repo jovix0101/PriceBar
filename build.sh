@@ -77,10 +77,30 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# An ad-hoc signature is enough for the app to run, and for macOS to let it
-# post notifications.
-echo "==> Signing (ad hoc)"
-codesign --force --deep --sign - "$APP"
+# Signing decides whether macOS keeps thinking this is the same app between
+# builds. An ad-hoc signature (`--sign -`) is tied to the hash of one build, so
+# every rebuild looks like a new app and the notification permission granted
+# last time is dropped. A certificate gives a stable identity instead:
+#
+#   identifier "dev.pricebar.app" and certificate root = H"..."
+#
+# scripts/setup-signing.sh creates one that needs no Apple membership. When a
+# Developer ID is available, pass it in instead: SIGN_IDENTITY="Developer ID
+# Application: ... (TEAMID)" ./build.sh
+SIGN_IDENTITY="${SIGN_IDENTITY:-}"
+if [[ -z "$SIGN_IDENTITY" ]] && security find-identity -p codesigning 2>/dev/null | grep -q "PriceBar Self-Signed"; then
+    SIGN_IDENTITY="PriceBar Self-Signed"
+fi
+
+if [[ -n "$SIGN_IDENTITY" ]]; then
+    echo "==> Signing as $SIGN_IDENTITY"
+    codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
+else
+    # No certificate on this Mac (a fresh contributor, or CI). The app still
+    # runs, but notifications may be reset on the next rebuild.
+    echo "==> Signing (ad hoc; run scripts/setup-signing.sh to keep notifications)"
+    codesign --force --deep --sign - "$APP"
+fi
 
 # A disk image, for handing the app to someone: it opens as a window with the
 # app in it, beside a shortcut to Applications, which is what a download of a

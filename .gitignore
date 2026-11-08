@@ -3,6 +3,9 @@ build/
 .swiftpm/
 .DS_Store
 
+# 导出的签名证书含私钥，绝不入库
+*.p12
+
 # 本地开发用的代理技能与原型，不随仓库发布
 .agents/
 .claude/
