@@ -1,0 +1,38 @@
+name: Metrics
+
+# Keeps the numbers GitHub throws away: release download counts have no history,
+# and the traffic API only keeps fourteen days. Once a day this records both in
+# metrics/daily.csv and commits it back, so the growth curve survives.
+#
+# Read-only from the outside: it only calls the GitHub API for this repo.
+
+on:
+  schedule:
+    - cron: "17 1 * * *"   # 09:17 in Beijing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record today
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/metrics.py
+
+      - name: Commit
+        run: |
+          if git diff --quiet -- metrics/daily.csv; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add metrics/daily.csv
+          git commit -m "记录每日指标 [skip ci]"
+          git push
