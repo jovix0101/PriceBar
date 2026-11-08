@@ -3,6 +3,10 @@
 // Nothing leaves the browser until SITE is filled in. With it empty this file
 // returns immediately, so an unconfigured page makes no third-party request at
 // all — which is what the README promises about the app itself.
+//
+// count.js is vendored next to this file instead of loaded from gc.zgo.at: that
+// host does not answer from mainland China, and a script tag that never loads
+// counts nothing. The hit itself goes straight to goatcounter.com, which does.
 (function () {
   var SITE = "pricebar"; // https://pricebar.goatcounter.com
   if (!SITE) return;
@@ -11,7 +15,7 @@
 
   var loader = document.createElement("script");
   loader.async = true;
-  loader.src = "https://gc.zgo.at/count.js";
+  loader.src = "count.js";
   loader.setAttribute("data-goatcounter", endpoint);
   document.head.appendChild(loader);
 
